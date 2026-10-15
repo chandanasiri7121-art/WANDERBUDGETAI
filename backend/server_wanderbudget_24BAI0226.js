@@ -445,6 +445,167 @@ const GLOBAL_COST_BENCHMARKS = {
       { name: 'Manikarnika Ghat Historic Walk', category: 'Cultural Heritage', price: 0, hours: 1.5 }
     ]
   },
+  'tirumala': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 800, acc_s: 2200, acc_l: 6500, meal_b: 400, meal_s: 950, meal_l: 2200, transit: 350, taxi: 18,
+    attractions: [
+      { name: 'Sri Venkateswara Swamy Temple (Tirumala Balaji Main Sanctum)', category: 'Sacred Maha Kshetram', price: 300, hours: 4.5 },
+      { name: 'Silathoranam Natural Rock Arch & Chakra Theertham', category: 'Geological Wonder', price: 0, hours: 1.5 },
+      { name: 'Papavinasanam Sacred Waterfalls & Reservoir', category: 'Holy Theertham', price: 0, hours: 2.0 },
+      { name: 'Srivari Padaalu (Sacred Divine Footprints)', category: 'Holy Footprints', price: 0, hours: 1.5 },
+      { name: 'Japali Hanuman Theertham Forest Shrine', category: 'Forest Shrine', price: 0, hours: 2.0 }
+    ]
+  },
+  'arunachalam': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 700, acc_s: 2000, acc_l: 6000, meal_b: 350, meal_s: 850, meal_l: 2000, transit: 280, taxi: 18,
+    attractions: [
+      { name: 'Sri Arunachaleswarar Temple (Agni Lingam Pancha Bhoota Sthalam)', category: 'Pancha Bhoota Shiva Temple', price: 50, hours: 3.0 },
+      { name: 'Girivalam (14 km Holy Mountain Circumambulation Path)', category: 'Spiritual Girivalam', price: 0, hours: 4.5 },
+      { name: 'Sri Ramana Maharshi Ashram & Virupaksha Cave', category: 'Spiritual Ashram & Cave', price: 0, hours: 2.0 },
+      { name: 'Sri Seshadri Swamigal Ashram & Samadhi', category: 'Spiritual Ashram', price: 0, hours: 1.5 }
+    ]
+  },
+  'tirunelveli': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 700, acc_s: 2000, acc_l: 5800, meal_b: 350, meal_s: 850, meal_l: 2000, transit: 280, taxi: 18,
+    attractions: [
+      { name: 'Nellaiappar Ancient Temple & Musical Stone Pillars', category: 'Dravidian Temple', price: 20, hours: 2.5 },
+      { name: 'Courtallam (Kutralam) Main Waterfalls & Herbal Spa', category: 'Cascading Waterfalls', price: 0, hours: 3.0 },
+      { name: 'Manimuthar Dam & Waterfalls Nature Reserve', category: 'Nature & Dam', price: 30, hours: 3.5 },
+      { name: 'Iruttu Kadai Halwa Authentic Heritage Stroll', category: 'Culinary Heritage', price: 0, hours: 1.5 }
+    ]
+  },
+  'thanjavur': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 900, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Brihadisvara Temple (Great Living Chola Temple - UNESCO)', category: 'UNESCO World Heritage', price: 0, hours: 3.5 },
+      { name: 'Thanjavur Maratha Royal Palace & Saraswathi Mahal Library', category: 'Royal Palace & Library', price: 50, hours: 2.5 },
+      { name: 'Thanjavur Art Gallery (Chola Bronze Sculptures)', category: 'Bronze Sculpture Art', price: 30, hours: 2.0 },
+      { name: 'Schwartz Church & Sivaganga Park', category: 'Historic Church & Garden', price: 10, hours: 1.5 }
+    ]
+  },
+  'araku': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 880, meal_l: 2100, transit: 350, taxi: 20,
+    attractions: [
+      { name: 'Borra Caves Million-Year-Old Limestone Formations', category: 'Limestone Caves', price: 80, hours: 3.0 },
+      { name: 'Katiki Waterfalls Trek & Bamboo Chicken Trail', category: 'Waterfalls & Trekking', price: 50, hours: 3.5 },
+      { name: 'Araku Tribal Museum & Coffee Plantations', category: 'Tribal Culture & Coffee', price: 40, hours: 2.0 },
+      { name: 'Padmapuram Botanical Gardens & Tree Huts', category: 'Botanical Gardens', price: 30, hours: 2.0 },
+      { name: 'Chaparai (Dumbriguda) Cascading Rock Waterfalls', category: 'Cascading Waterfalls', price: 20, hours: 2.5 }
+    ]
+  },
+  'warangal': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6200, meal_b: 380, meal_s: 880, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Thousand Pillar Temple (Kakatiya Masterpiece)', category: 'Historic Temple', price: 0, hours: 2.0 },
+      { name: 'Warangal Fort & Kakatiya Kala Thoranam', category: 'Historical Fort', price: 25, hours: 2.5 },
+      { name: 'Ramappa Temple (Rudreshwara UNESCO World Heritage)', category: 'UNESCO World Heritage', price: 25, hours: 3.0 },
+      { name: 'Bhadrakali Temple & Lake Promenade', category: 'Ancient Sacred Temple', price: 0, hours: 2.0 }
+    ]
+  },
+  'nellore': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 700, acc_s: 2000, acc_l: 5800, meal_b: 350, meal_s: 850, meal_l: 2000, transit: 280, taxi: 18,
+    attractions: [
+      { name: 'Sri Talpagiri Ranganathaswamy Ancient Temple', category: 'Historic Vaishnavite Shrine', price: 0, hours: 2.0 },
+      { name: 'Mypadu Beach Golden Sand Coastline', category: 'Coastal Beach', price: 0, hours: 2.5 },
+      { name: 'Pulicat Lake & Nelapattu Bird Sanctuary', category: 'Bird Sanctuary', price: 50, hours: 3.5 },
+      { name: 'Jonnawada Kamakshi Malleswara Swamy Temple', category: 'Sacred Temple', price: 0, hours: 2.0 }
+    ]
+  },
+  'rajahmundry': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6200, meal_b: 380, meal_s: 880, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Godavari River Pushkar Ghat & Evening Harathi', category: 'Sacred River Ghat', price: 0, hours: 2.0 },
+      { name: 'Papikondalu Scenic River Cruise on Godavari', category: 'River Gorge Cruise', price: 950, hours: 6.0 },
+      { name: 'ISKCON Sri Gopinath Temple (Rajahmundry)', category: 'Spiritual Temple', price: 0, hours: 1.5 },
+      { name: 'Kotilingeswara Temple & Havelock Bridge View', category: 'Riverfront Viewpoint', price: 0, hours: 2.0 }
+    ]
+  },
+  'kanyakumari': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 800, acc_s: 2300, acc_l: 7000, meal_b: 400, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Vivekananda Rock Memorial & Ferry Ride', category: 'National Monument', price: 50, hours: 2.5 },
+      { name: 'Thiruvalluvar Giant Stone Statue', category: 'Monument', price: 20, hours: 1.5 },
+      { name: 'Triveni Sangam (Confluence of 3 Oceans) & Sunrise Point', category: 'Sacred Confluence', price: 0, hours: 2.0 },
+      { name: 'Kanyakumari Bhagavathi Amman 3000-Yr Temple', category: 'Ancient Sacred Temple', price: 0, hours: 1.5 }
+    ]
+  },
+  'munnar': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 850, acc_s: 2600, acc_l: 8500, meal_b: 420, meal_s: 1050, meal_l: 2600, transit: 350, taxi: 22,
+    attractions: [
+      { name: 'Eravikulam National Park (Nilgiri Tahr Safari)', category: 'Wildlife Sanctuary', price: 200, hours: 3.5 },
+      { name: 'Mattupetty Dam & Speed Boating', category: 'Dam & Boating', price: 100, hours: 2.0 },
+      { name: 'Tea Museum & Tata Tea Processing Tour', category: 'Tea Heritage', price: 150, hours: 2.0 },
+      { name: 'Top Station Panoramic Western Ghats Viewpoint', category: 'Mountain Viewpoint', price: 25, hours: 2.5 }
+    ]
+  },
+  'coorg': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 850, acc_s: 2600, acc_l: 8500, meal_b: 420, meal_s: 1050, meal_l: 2600, transit: 350, taxi: 22,
+    attractions: [
+      { name: 'Abbey Waterfalls & Hanging Bridge', category: 'Scenic Waterfalls', price: 20, hours: 2.0 },
+      { name: 'Raja\'s Seat Sunset Viewpoint & Musical Fountain', category: 'Sunset Viewpoint', price: 20, hours: 2.0 },
+      { name: 'Namdroling Monastery Golden Temple (Bylakuppe)', category: 'Tibetan Monastery', price: 0, hours: 2.5 },
+      { name: 'Dubare Elephant Camp River Crossing & Interaction', category: 'Wildlife Camp', price: 100, hours: 3.0 }
+    ]
+  },
+  'wayanad': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 850, acc_s: 2500, acc_l: 8000, meal_b: 400, meal_s: 1000, meal_l: 2500, transit: 350, taxi: 22,
+    attractions: [
+      { name: 'Banasura Sagar Dam (Largest Earthen Dam in India)', category: 'Earthen Dam & Boating', price: 50, hours: 2.5 },
+      { name: 'Edakkal Prehistoric Rock Carving Caves Trek', category: 'Prehistoric Caves', price: 50, hours: 3.0 },
+      { name: 'Soochipara (Sentinel Rock) Waterfalls', category: 'Waterfalls & Trek', price: 50, hours: 2.5 },
+      { name: 'Pookode Freshwater Lake & Pedal Boating', category: 'Freshwater Lake', price: 30, hours: 2.0 }
+    ]
+  },
+  'shirdi': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 350, meal_s: 850, meal_l: 2000, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Sri Sai Baba Samadhi Mandir & Dwarkamai', category: 'Sacred Samadhi Mandir', price: 0, hours: 3.5 },
+      { name: 'Sai Teerth Devotional Theme Park & 5D Show', category: 'Spiritual Theme Park', price: 400, hours: 3.0 },
+      { name: 'Gurusthan & Chavadi Sacred Meditation', category: 'Holy Shrine', price: 0, hours: 1.5 },
+      { name: 'Shani Shingnapur Sacred Shani Temple', category: 'Sacred Temple', price: 0, hours: 2.5 }
+    ]
+  },
+  'srisailam': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 900, meal_l: 2100, transit: 320, taxi: 20,
+    attractions: [
+      { name: 'Mallikarjuna Swamy Jyotirlinga & Bhramaramba Devi', category: 'Jyotirlinga Maha Kshetram', price: 100, hours: 3.5 },
+      { name: 'Srisailam Dam & Ropeway Cable Car to Pathalaganga', category: 'Ropeway & Dam', price: 120, hours: 2.5 },
+      { name: 'Akka Mahadevi Natural Caves Boating Safari', category: 'River Boating & Caves', price: 350, hours: 4.0 },
+      { name: 'Sakshi Ganapathi Temple & Shikhareswaram View', category: 'Spiritual Viewpoint', price: 0, hours: 2.0 }
+    ]
+  },
+  'srikalahasti': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 700, acc_s: 2000, acc_l: 5800, meal_b: 350, meal_s: 850, meal_l: 2000, transit: 280, taxi: 18,
+    attractions: [
+      { name: 'Srikalahasteeswara Temple (Vayu Lingam & Rahu Ketu Pooja)', category: 'Pancha Bhoota Vayu Lingam', price: 200, hours: 3.0 },
+      { name: 'Bhakta Kannappa Hilltop Shrine & Swarnamukhi River', category: 'Hilltop Shrine', price: 0, hours: 2.0 },
+      { name: 'Subrahmanya Swamy Temple & Theertham', category: 'Sacred Temple', price: 0, hours: 1.5 }
+    ]
+  },
+  'kanchipuram': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 900, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Sri Kamakshi Amman Temple (Shakti Peetham)', category: 'Shakti Peetham', price: 0, hours: 2.0 },
+      { name: 'Ekambareswarar Temple (Prithvi Lingam & 3500-Yr Tree)', category: 'Pancha Bhoota Prithvi Lingam', price: 0, hours: 2.5 },
+      { name: 'Kailasanathar Ancient 7th-Century Pallava Stone Temple', category: 'Pallava Architecture', price: 0, hours: 2.0 },
+      { name: 'Kanchipuram Silk Weavers Co-operative Guild Trail', category: 'Handloom Silk Heritage', price: 0, hours: 2.0 }
+    ]
+  },
+  'rameshwaram': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 900, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Ramanathaswamy Jyotirlinga Temple & 22 Holy Wells', category: 'Char Dham Jyotirlinga', price: 25, hours: 3.5 },
+      { name: 'Dhanushkodi Ghost Town & Ram Setu Beach Point', category: 'Historical Coastal Landmark', price: 150, hours: 3.0 },
+      { name: 'Dr. A.P.J. Abdul Kalam National Memorial', category: 'National Memorial', price: 0, hours: 1.5 },
+      { name: 'Pamban Sea Bridge & Railway Engineering Wonder', category: 'Sea Bridge Landmark', price: 0, hours: 1.5 }
+    ]
+  },
+  'madurai': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2200, acc_l: 6500, meal_b: 380, meal_s: 900, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Meenakshi Amman Temple & 1000-Pillar Hall', category: 'Historic Dravidian Wonder', price: 50, hours: 3.5 },
+      { name: 'Thirumalai Nayakkar Mahal Palace Light & Sound Show', category: 'Royal Palace', price: 50, hours: 2.0 },
+      { name: 'Gandhi Memorial Museum & Heritage Archive', category: 'National Museum', price: 0, hours: 2.0 },
+      { name: 'Alagar Kovil Hill Temple & Natural Springs', category: 'Hillside Sacred Temple', price: 0, hours: 2.5 }
+    ]
+  },
+  'sydney': { country: 'Australia', currency: 'AUD', symbol: 'A$', rate: 55.5, acc_b: 50, acc_s: 160, acc_l: 420, meal_b: 22, meal_s: 58, meal_l: 160, transit: 10, taxi: 2.5,
+    attractions: [
+      { name: 'Sydney Opera House Guided Architectural Tour', category: 'Iconic Architecture', price: 43, hours: 2.0 },
+      { name: 'Sydney Harbour Bridge Pylon Lookout & Walk', category: 'Harbour Landmark', price: 24, hours: 2.5 },
+      { name: 'Bondi to Coogee Coastal Walk', category: 'Oceanfront Coastal Walk', price: 0, hours: 3.0 },
+      { name: 'Taronga Zoo Sydney Ferry & Wildlife Pass', category: 'Harbour Wildlife Zoo', price: 51, hours: 4.0 }
+    ]
+  },
+  'toronto': { country: 'Canada', currency: 'CAD', symbol: 'C$', rate: 61.5, acc_b: 50, acc_s: 150, acc_l: 390, meal_b: 22, meal_s: 55, meal_l: 150, transit: 10, taxi: 2.2,
+    attractions: [
+      { name: 'CN Tower Main Observation Level & Glass Floor', category: 'Skyline Tower', price: 43, hours: 2.0 },
+      { name: 'Ripley\'s Aquarium of Canada Underwater Tunnel', category: 'Marine Aquarium', price: 44, hours: 2.5 },
+      { name: 'Royal Ontario Museum (ROM) Art & Nature', category: 'World Museum', price: 26, hours: 3.0 },
+      { name: 'Toronto Islands Ferry & Skyline Beach Walk', category: 'Island Park', price: 9, hours: 3.5 }
+    ]
+  },
   'jaipur': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2400, acc_l: 8500, meal_b: 450, meal_s: 1100, meal_l: 2800, transit: 400, taxi: 20,
     attractions: [
       { name: 'Amber Palace & Jaigarh Fort', category: 'Historical Fort', price: 200, hours: 4.0 },
@@ -464,14 +625,46 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid destination city or region name' });
     }
 
-    const queryClean = destination_query.trim().toLowerCase();
+    // Sanitize query: strip trailing punctuation/quotes/apostrophes
+    const rawClean = destination_query.replace(/['"\.,;!\?]+$/g, '').trim();
+    let queryClean = rawClean.toLowerCase();
+
+    // Comprehensive phonetic & spelling aliases
+    const SPELLING_MAP = {
+      'aaraku': 'araku',
+      'araku valley': 'araku',
+      'thiruvanveli': 'tirunelveli',
+      'thanjavore': 'thanjavur',
+      'tanjore': 'thanjavur',
+      'tiruvannamalai': 'arunachalam',
+      'vizag': 'visakhapatnam',
+      'kanchi': 'kanchipuram',
+      'conjeevaram': 'kanchipuram',
+      'trichy': 'tiruchirappalli',
+      'tiruchi': 'tiruchirappalli',
+      'rameswaram': 'rameshwaram',
+      'bengaluru': 'bangalore',
+      'cochin': 'kochi',
+      'mysuru': 'mysore',
+      'puducherry': 'pondicherry',
+      'bombay': 'mumbai',
+      'calcutta': 'kolkata',
+      'banaras': 'varanasi',
+      'kashi': 'varanasi',
+      'nyc': 'new york',
+      'syd': 'sydney'
+    };
+
+    if (SPELLING_MAP[queryClean]) {
+      queryClean = SPELLING_MAP[queryClean];
+    }
 
     // Check existing destination in database first
     const existing = await prisma.destination.findFirst({
       where: {
         OR: [
-          { city_name: { equals: queryClean, mode: 'insensitive' } },
-          { city_name: { contains: queryClean, mode: 'insensitive' } }
+          { city_name: { equals: rawClean, mode: 'insensitive' } },
+          { city_name: { equals: queryClean, mode: 'insensitive' } }
         ]
       },
       include: {
@@ -480,7 +673,7 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       }
     });
 
-    if (existing && !refresh && existing.cost_index && existing.attractions.length > 0) {
+    if (existing && !refresh && existing.cost_index && existing.attractions && existing.attractions.length > 0) {
       return res.json({
         cached: true,
         source: existing.cost_index.source,
@@ -490,45 +683,26 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
     }
 
     // Capitalize city name
-    const formattedCity = destination_query.split(' ')
+    const formattedCity = rawClean.split(' ')
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
 
-    // AI & Web-Grounded Synthesis
-    // Find matching benchmark or synthesize using international travel index models
+    // Match benchmarks
     let benchmarkKey = Object.keys(GLOBAL_COST_BENCHMARKS).find(k => queryClean.includes(k) || k.includes(queryClean));
     let data;
 
     if (benchmarkKey) {
       data = GLOBAL_COST_BENCHMARKS[benchmarkKey];
     } else {
-      // Dynamic AI Synthesis based on intelligent regional detection
-      const indianKeywords = [
-        'india', 'andhra', 'telangana', 'karnataka', 'tamil', 'kerala', 'maharashtra', 'gujarat',
-        'rajasthan', 'punjab', 'bengal', 'odisha', 'bihar', 'up', 'uttar', 'madhya', 'himachal',
-        'kashmir', 'patna', 'indore', 'bhubaneswar', 'madurai', 'trivandrum', 'thiruvananthapuram',
-        'calicut', 'kozhikode', 'mangalore', 'mangaluru', 'mysore', 'pune', 'nagpur', 'surat',
-        'vadodara', 'ahmedabad', 'ranchi', 'guwahati', 'shillong', 'gangtok', 'darjeeling',
-        'jodhpur', 'jaisalmer', 'bikaner', 'pushkar', 'ajmer', 'mathura', 'vrindavan', 'haridwar',
-        'dehradun', 'nainital', 'mussoorie', 'kullu', 'dharamshala', 'dalhousie', 'hampi'
-      ];
-      const isDomestic = indianKeywords.some(w => queryClean.includes(w));
-      const isEurope = ['europe', 'france', 'italy', 'spain', 'germany', 'uk', 'england', 'switzerland', 'austria', 'netherlands', 'prague', 'barcelona', 'berlin', 'madrid', 'vienna', 'amsterdam', 'munich', 'florence', 'venice', 'lisbon', 'athens'].some(c => queryClean.includes(c));
-      const isAsia = ['japan', 'korea', 'china', 'thailand', 'vietnam', 'malaysia', 'indonesia', 'philippines', 'taiwan', 'kyoto', 'osaka', 'hanoi', 'ho chi minh', 'phuket', 'kuala lumpur', 'taipei'].some(c => queryClean.includes(c));
+      // Dynamic AI Synthesis with rigorous domestic/international detection
+      const isEurope = ['europe', 'france', 'italy', 'spain', 'germany', 'uk', 'england', 'switzerland', 'austria', 'netherlands', 'prague', 'barcelona', 'berlin', 'madrid', 'vienna', 'amsterdam', 'munich', 'florence', 'venice', 'lisbon', 'athens', 'greece', 'portugal', 'belgium', 'brussels', 'ireland', 'dublin', 'scotland', 'edinburgh'].some(c => queryClean.includes(c));
+      const isAmericas = ['usa', 'america', 'united states', 'canada', 'toronto', 'vancouver', 'mexico', 'brazil', 'argentina', 'california', 'los angeles', 'chicago', 'miami', 'san francisco', 'las vegas', 'washington', 'boston', 'seattle'].some(c => queryClean.includes(c));
+      const isEastAsia = ['japan', 'korea', 'china', 'tokyo', 'seoul', 'beijing', 'shanghai', 'kyoto', 'osaka', 'taiwan', 'taipei', 'hong kong'].some(c => queryClean.includes(c));
+      const isSEAsia = ['thailand', 'vietnam', 'malaysia', 'indonesia', 'philippines', 'bangkok', 'hanoi', 'ho chi minh', 'phuket', 'kuala lumpur', 'bali', 'singapore', 'jakarta'].some(c => queryClean.includes(c));
+      const isMiddleEast = ['dubai', 'uae', 'emirates', 'abu dhabi', 'qatar', 'doha', 'saudi', 'riyadh', 'egypt', 'cairo', 'turkey', 'istanbul'].some(c => queryClean.includes(c));
+      const isOceania = ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'new zealand', 'auckland', 'fiji'].some(c => queryClean.includes(c));
 
-      if (isDomestic) {
-        data = {
-          country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
-          acc_b: 800, acc_s: 2400, acc_l: 7500, meal_b: 400, meal_s: 950, meal_l: 2400, transit: 320, taxi: 20,
-          attractions: [
-            { name: `${formattedCity} Ancient Sacred Temple & Heritage Shrine`, category: 'Spiritual Shrine', price: 0, hours: 2.0 },
-            { name: `${formattedCity} Historic Royal Fort & Museum Palace`, category: 'Heritage Fort', price: 80, hours: 3.0 },
-            { name: `${formattedCity} Scenic Lake Promenade & Public Gardens`, category: 'Public Park', price: 25, hours: 2.0 },
-            { name: `${formattedCity} Traditional Handicrafts Bazaar & Food Trail`, category: 'Cultural Market', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Hilltop Viewpoint & Nature Sanctuary`, category: 'Scenic Nature', price: 40, hours: 2.5 }
-          ]
-        };
-      } else if (isEurope) {
+      if (isEurope) {
         data = {
           country: 'Europe Region', currency: 'EUR', symbol: '€', rate: 90.5,
           acc_b: 38, acc_s: 115, acc_l: 310, meal_b: 22, meal_s: 58, meal_l: 145, transit: 8.5, taxi: 2.0,
@@ -539,27 +713,71 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
             { name: `${formattedCity} Cultural Heritage District & Market`, category: 'Cultural Quarter', price: 0, hours: 2.0 }
           ]
         };
-      } else if (isAsia) {
+      } else if (isAmericas) {
         data = {
-          country: 'Asia Region', currency: 'USD', symbol: '$', rate: 84.0,
-          acc_b: 22, acc_s: 65, acc_l: 180, meal_b: 10, meal_s: 28, meal_l: 85, transit: 5.0, taxi: 1.2,
+          country: 'Americas', currency: 'USD', symbol: '$', rate: 84.0,
+          acc_b: 45, acc_s: 140, acc_l: 380, meal_b: 22, meal_s: 55, meal_l: 150, transit: 10.0, taxi: 2.5,
           attractions: [
-            { name: `${formattedCity} Historic Temple & Sacred Sanctuary`, category: 'Temple', price: 8, hours: 2.5 },
-            { name: `${formattedCity} Traditional Floating / Night Market`, category: 'Cultural Market', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Scenic Mountain / Coast Observation Deck`, category: 'Observation', price: 15, hours: 2.0 },
-            { name: `${formattedCity} National Heritage & Folk Arts Centre`, category: 'Arts & Culture', price: 10, hours: 2.0 }
+            { name: `${formattedCity} Downtown Plaza & Iconic City Landmark`, category: 'City Landmark', price: 0, hours: 2.0 },
+            { name: `${formattedCity} State Museum of Fine Arts & Heritage`, category: 'Arts & History Museum', price: 25, hours: 3.0 },
+            { name: `${formattedCity} Waterfront Harbour & Skyline Park`, category: 'Harbour Promenade', price: 0, hours: 2.5 },
+            { name: `${formattedCity} City Observation Deck & Skyline View`, category: 'Observation Deck', price: 32, hours: 2.0 }
+          ]
+        };
+      } else if (isEastAsia) {
+        data = {
+          country: 'East Asia', currency: 'USD', symbol: '$', rate: 84.0,
+          acc_b: 28, acc_s: 85, acc_l: 240, meal_b: 14, meal_s: 38, meal_l: 110, transit: 6.0, taxi: 1.8,
+          attractions: [
+            { name: `${formattedCity} Ancient Temple & Traditional Garden`, category: 'Historic Temple', price: 5, hours: 2.5 },
+            { name: `${formattedCity} Historic Castle & Traditional Quarter`, category: 'Heritage Castle', price: 12, hours: 3.0 },
+            { name: `${formattedCity} Night Market & Street Food Alley`, category: 'Cultural Food Market', price: 0, hours: 2.5 },
+            { name: `${formattedCity} Panoramic Mountain / Skyline View`, category: 'Scenic Observation', price: 18, hours: 2.0 }
+          ]
+        };
+      } else if (isSEAsia) {
+        data = {
+          country: 'Southeast Asia', currency: 'USD', symbol: '$', rate: 84.0,
+          acc_b: 20, acc_s: 60, acc_l: 175, meal_b: 10, meal_s: 26, meal_l: 80, transit: 4.5, taxi: 1.2,
+          attractions: [
+            { name: `${formattedCity} Sacred Temple & Royal Sanctuary`, category: 'Temple Sanctuary', price: 6, hours: 2.5 },
+            { name: `${formattedCity} Traditional Floating & Night Market`, category: 'Cultural Market', price: 0, hours: 2.5 },
+            { name: `${formattedCity} Tropical Nature Waterfall & Reserve`, category: 'Nature Waterfall', price: 10, hours: 3.0 },
+            { name: `${formattedCity} Cultural Folk Dance & Heritage Centre`, category: 'Arts & Culture', price: 12, hours: 2.0 }
+          ]
+        };
+      } else if (isMiddleEast) {
+        data = {
+          country: 'Middle East', currency: 'AED', symbol: 'AED', rate: 22.8,
+          acc_b: 95, acc_s: 300, acc_l: 950, meal_b: 40, meal_s: 115, meal_l: 380, transit: 18, taxi: 2.2,
+          attractions: [
+            { name: `${formattedCity} Grand Mosque & Islamic Heritage Center`, category: 'Spiritual Center', price: 0, hours: 2.5 },
+            { name: `${formattedCity} Historic Heritage Souq & Spice Market`, category: 'Traditional Souq', price: 0, hours: 2.0 },
+            { name: `${formattedCity} Desert Dunes & Sunset Safari Camp`, category: 'Desert Adventure', price: 180, hours: 5.0 },
+            { name: `${formattedCity} Modern Skyline Observation Point`, category: 'Observation Deck', price: 120, hours: 2.0 }
+          ]
+        };
+      } else if (isOceania) {
+        data = {
+          country: 'Australia & Pacific', currency: 'AUD', symbol: 'A$', rate: 55.5,
+          acc_b: 48, acc_s: 155, acc_l: 400, meal_b: 22, meal_s: 56, meal_l: 150, transit: 10, taxi: 2.5,
+          attractions: [
+            { name: `${formattedCity} Harbour Foreshore & Botanical Gardens`, category: 'Coastal Park', price: 0, hours: 2.5 },
+            { name: `${formattedCity} Heritage Art Gallery & Museum`, category: 'Art Museum', price: 20, hours: 2.5 },
+            { name: `${formattedCity} Coastal Ocean Trail & Surf Beach`, category: 'Beach & Trail', price: 0, hours: 3.0 },
+            { name: `${formattedCity} Native Wildlife Sanctuary & Safari`, category: 'Wildlife Sanctuary', price: 42, hours: 3.5 }
           ]
         };
       } else {
-        // General Global Destination Model
+        // DEFAULT IS ALWAYS DOMESTIC INDIA (INR ₹)
         data = {
-          country: 'International', currency: 'USD', symbol: '$', rate: 84.0,
-          acc_b: 35, acc_s: 110, acc_l: 290, meal_b: 20, meal_s: 52, meal_l: 135, transit: 8.0, taxi: 2.2,
+          country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
+          acc_b: 750, acc_s: 2200, acc_l: 6800, meal_b: 380, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
           attractions: [
-            { name: `${formattedCity} Downtown Historic Plaza & Landmark`, category: 'Landmark', price: 0, hours: 2.0 },
-            { name: `${formattedCity} National Museum & Art Gallery Pass`, category: 'Museum', price: 22, hours: 3.0 },
-            { name: `${formattedCity} City Skyline Observation Tower`, category: 'Observation Deck', price: 28, hours: 2.0 },
-            { name: `${formattedCity} Botanical Park & Waterfront Trail`, category: 'Nature Park', price: 0, hours: 2.0 }
+            { name: `${formattedCity} Ancient Sacred Temple & Sanctum Darshan`, category: 'Spiritual Shrine', price: 50, hours: 2.5 },
+            { name: `${formattedCity} Historical Heritage Fort & Royal Citadel`, category: 'Heritage Fort', price: 25, hours: 2.5 },
+            { name: `${formattedCity} Scenic Hills & Waterfalls Viewpoint`, category: 'Scenic Nature', price: 20, hours: 2.0 },
+            { name: `${formattedCity} Traditional Heritage Bazaar & Cultural Food Trail`, category: 'Cultural Market', price: 0, hours: 2.0 }
           ]
         };
       }
