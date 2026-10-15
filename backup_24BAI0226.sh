@@ -1,5 +1,5 @@
 #!/bin/bash
-# SkillGap Radar - Native PostgreSQL Backup & Recovery Script
+# WanderBudget AI - Native PostgreSQL Backup & Recovery Script
 # Student: Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26
 # Course: BCSE302P Database Systems Lab | Faculty: Dr. V. SIVAKUMAR
 
@@ -10,12 +10,12 @@ DB_NAME="skillgap_radar_24BAI0226"
 DB_USER="postgres"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_DIR="./backups"
-BACKUP_FILE="${BACKUP_DIR}/skillgap_backup_24BAI0226_${TIMESTAMP}.sql"
+BACKUP_FILE="${BACKUP_DIR}/wanderbudget_backup_24BAI0226_${TIMESTAMP}.sql"
 
 mkdir -p "${BACKUP_DIR}"
 
 echo "================================================================="
-echo " SkillGap Radar - Native PostgreSQL Backup & Restore Utility"
+echo " WanderBudget AI - Native PostgreSQL Backup & Restore Utility"
 echo " Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26"
 echo " Time: $(date)"
 echo "================================================================="
