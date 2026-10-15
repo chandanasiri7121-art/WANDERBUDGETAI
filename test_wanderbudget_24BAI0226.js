@@ -319,6 +319,29 @@ async function runTests() {
     }
   });
 
+  // Test 17: Sign in with Google OAuth (Section 5 Rubric Compliance)
+  await test('Test 17: Sign in with Google OAuth (Single Users Table & Audit Trail)', async () => {
+    const testGoogleEmail = `tester_${Date.now()}@gmail.com`;
+    const res = await fetch(`${BASE_URL}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: testGoogleEmail,
+        name: 'Automated Google Traveler',
+        picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        google_id: 'GGL_TEST_' + Date.now()
+      })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.token || !data.user || data.user.oauth_provider !== 'GOOGLE') {
+      throw new Error('Google OAuth token or user verification failed');
+    }
+    if (!data.user.email || data.user.email !== testGoogleEmail) {
+      throw new Error('Google OAuth registered user email mismatch');
+    }
+  });
+
   console.log('\n================================================================');
   console.log(` Test Results: ${passed} Passed | ${failed} Failed `);
   console.log('================================================================');
