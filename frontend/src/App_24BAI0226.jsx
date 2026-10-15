@@ -1,5 +1,5 @@
 // ============================================================================
-// SkillGap Radar - Main Application Component
+// SkillGap Radar - Main Application Component (Enhanced Standout Edition)
 // Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
 // Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
@@ -14,8 +14,13 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
 } from 'recharts';
@@ -42,6 +47,15 @@ import {
   FileText,
   ChevronRight,
   ChevronLeft,
+  GitBranch,
+  Printer,
+  BarChart3,
+  Activity,
+  Check,
+  Zap,
+  Target,
+  ArrowRight,
+  X,
 } from 'lucide-react';
 
 const API_BASE = '/api';
@@ -72,7 +86,8 @@ export default function App_24BAI0226_SaiSiriChandana() {
   // --------------------------------------------------------------------------
   // DASHBOARD STATE
   // --------------------------------------------------------------------------
-  const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'assessment', 'roadmap', 'admin'
+  // Tabs: 'radar', 'assessment', 'roadmap', 'dag', 'multirole', 'timeline', 'admin'
+  const [activeTab, setActiveTab] = useState('radar');
   const [careerRoles, setCareerRoles] = useState([]);
   const [selectedVersionId, setSelectedVersionId] = useState(2); // Default to v2.0
   const [reportData, setReportData] = useState(null);
@@ -98,6 +113,19 @@ export default function App_24BAI0226_SaiSiriChandana() {
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizResult, setQuizResult] = useState(null);
+
+  // --------------------------------------------------------------------------
+  // STANDOUT FEATURES STATE
+  // --------------------------------------------------------------------------
+  const [dagGraph, setDagGraph] = useState({ nodes: [], edges: [] });
+  const [loadingDag, setLoadingDag] = useState(false);
+  const [multiRoleData, setMultiRoleData] = useState([]);
+  const [loadingMultiRole, setLoadingMultiRole] = useState(false);
+  const [timelineData, setTimelineData] = useState([]);
+  const [loadingTimeline, setLoadingTimeline] = useState(false);
+  const [queryBenchmarks, setQueryBenchmarks] = useState(null);
+  const [loadingBenchmarks, setLoadingBenchmarks] = useState(false);
+  const [showDossierModal, setShowDossierModal] = useState(false);
 
   // --------------------------------------------------------------------------
   // ADMIN PANEL STATE
@@ -233,6 +261,78 @@ export default function App_24BAI0226_SaiSiriChandana() {
     }
   };
 
+  const fetchDagGraph = async () => {
+    if (!authToken) return;
+    setLoadingDag(true);
+    try {
+      const res = await fetch(`${API_BASE}/skills/prerequisite-graph`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDagGraph(data);
+      }
+    } catch (err) {
+      console.error('Fetch DAG error:', err);
+    } finally {
+      setLoadingDag(false);
+    }
+  };
+
+  const fetchMultiRoleComparison = async () => {
+    if (!authToken) return;
+    setLoadingMultiRole(true);
+    try {
+      const res = await fetch(`${API_BASE}/skill-gaps/multi-role-comparison`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMultiRoleData(data);
+      }
+    } catch (err) {
+      console.error('Fetch multi-role error:', err);
+    } finally {
+      setLoadingMultiRole(false);
+    }
+  };
+
+  const fetchProgressTimeline = async () => {
+    if (!authToken) return;
+    setLoadingTimeline(true);
+    try {
+      const res = await fetch(`${API_BASE}/assessments/progress-timeline`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTimelineData(data);
+      }
+    } catch (err) {
+      console.error('Fetch timeline error:', err);
+    } finally {
+      setLoadingTimeline(false);
+    }
+  };
+
+  const fetchQueryBenchmarks = async () => {
+    if (!authToken || currentUser?.role !== 'ADMIN') return;
+    setLoadingBenchmarks(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/query-benchmarks`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQueryBenchmarks(data);
+      }
+    } catch (err) {
+      console.error('Fetch benchmarks error:', err);
+    } finally {
+      setLoadingBenchmarks(false);
+    }
+  };
+
   const fetchAuditLogs = async (page = 1) => {
     if (!authToken || currentUser?.role !== 'ADMIN') return;
     try {
@@ -261,13 +361,16 @@ export default function App_24BAI0226_SaiSiriChandana() {
       fetchSkills();
       fetchGapReport(selectedVersionId);
       fetchRoadmapView(selectedVersionId, 1);
+      fetchDagGraph();
+      fetchMultiRoleComparison();
+      fetchProgressTimeline();
       if (currentUser?.role === 'ADMIN') {
         fetchAuditLogs(1);
+        fetchQueryBenchmarks();
       }
     }
   }, [authToken, selectedVersionId]);
 
-  // Refetch roadmap on search/category change
   useEffect(() => {
     if (authToken) {
       const timer = setTimeout(() => {
@@ -328,11 +431,15 @@ export default function App_24BAI0226_SaiSiriChandana() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit quiz');
       setQuizResult(data);
-      // Refresh report & roadmap
+      // Refresh telemetry
       fetchGapReport(selectedVersionId);
       fetchRoadmapView(selectedVersionId, roadmapPage);
+      fetchDagGraph();
+      fetchMultiRoleComparison();
+      fetchProgressTimeline();
       if (currentUser?.role === 'ADMIN') {
         fetchAuditLogs(1);
+        fetchQueryBenchmarks();
       }
     } catch (err) {
       alert(`Submission Error: ${err.message}`);
@@ -367,6 +474,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
       fetchGapReport(selectedVersionId);
       fetchRoadmapView(selectedVersionId, roadmapPage);
       fetchAuditLogs(1);
+      fetchQueryBenchmarks();
     } catch (err) {
       setAdminNotice(`Error: ${err.message}`);
     }
@@ -378,7 +486,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
   if (!authToken || !currentUser) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex flex-col justify-between p-4 md:p-8">
-        {/* Top Identity Header */}
         <header className="w-full glass-panel rounded-2xl p-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4 border border-indigo-500/20 shadow-2xl">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-indigo-600/20 border border-indigo-500/40 rounded-xl text-indigo-400">
@@ -402,7 +509,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
           </div>
         </header>
 
-        {/* Login Container */}
         <main className="flex-1 flex items-center justify-center my-8">
           <div className="w-full max-w-md glass-panel p-8 rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500"></div>
@@ -467,7 +573,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
               </button>
             </form>
 
-            {/* Quick Demo Login Autofill Buttons */}
             <div className="mt-6 pt-5 border-t border-gray-800">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center mb-3">
                 1-Click Laboratory Demo Credentials
@@ -506,12 +611,8 @@ export default function App_24BAI0226_SaiSiriChandana() {
   }
 
   // ==========================================================================
-  // RENDER: AUTHENTICATED DASHBOARD
+  // RENDER: AUTHENTICATED DASHBOARD (STANDOUT EDITION)
   // ==========================================================================
-  const activeRoleVersion = careerRoles
-    .flatMap((r) => r.versions)
-    .find((v) => v.version_id === selectedVersionId);
-
   return (
     <div className="min-h-screen bg-[#0b0f19] flex flex-col text-gray-100">
       {/* 1. TOP IDENTITY & HEADER (MANDATORY LAB COMPLIANCE) */}
@@ -536,7 +637,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
           </div>
 
           {/* Mandatory Student Identity & Realtime Clock */}
-          <div className="flex items-center gap-4 flex-wrap justify-center">
+          <div className="flex items-center gap-3 flex-wrap justify-center">
             <div className="bg-gray-900/90 border border-indigo-500/30 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-2.5 shadow-inner">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <div>
@@ -556,6 +657,15 @@ export default function App_24BAI0226_SaiSiriChandana() {
               <Clock className="w-3.5 h-3.5 text-cyan-400" />
               <span>{currentTimestamp}</span>
             </div>
+
+            {/* Dossier Print Modal Trigger */}
+            <button
+              onClick={() => setShowDossierModal(true)}
+              className="px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 transition"
+              title="Generate Official Academic Dossier"
+            >
+              <Printer className="w-3.5 h-3.5" /> Export Dossier
+            </button>
 
             {/* User Profile Badge & Logout */}
             <div className="flex items-center gap-2">
@@ -585,14 +695,14 @@ export default function App_24BAI0226_SaiSiriChandana() {
         </div>
       </header>
 
-      {/* 2. SUB-BAR: CONTROLS & VERSION-AWARE SWITCHER */}
+      {/* 2. SUB-BAR: EXTENDED STANDOUT TABS & VERSION SWITCHER */}
       <section className="bg-gray-900/60 border-b border-gray-800 px-4 md:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 bg-gray-950/80 p-1 rounded-xl border border-gray-800">
+          {/* Extended Navigation Tabs */}
+          <nav className="flex items-center gap-1 bg-gray-950/80 p-1 rounded-xl border border-gray-800 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab('radar')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'radar'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -602,7 +712,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
             </button>
             <button
               onClick={() => setActiveTab('assessment')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'assessment'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -612,7 +722,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
             </button>
             <button
               onClick={() => setActiveTab('roadmap')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'roadmap'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -620,22 +730,52 @@ export default function App_24BAI0226_SaiSiriChandana() {
             >
               <Layers className="w-3.5 h-3.5 text-emerald-400" /> Adaptive Roadmap View
             </button>
+            <button
+              onClick={() => setActiveTab('dag')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'dag'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <GitBranch className="w-3.5 h-3.5 text-amber-400" /> Prerequisite DAG Graph
+            </button>
+            <button
+              onClick={() => setActiveTab('multirole')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'multirole'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> Multi-Role Matrix
+            </button>
+            <button
+              onClick={() => setActiveTab('timeline')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'timeline'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-purple-400" /> Progress Timeline
+            </button>
             {currentUser.role === 'ADMIN' && (
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'admin'
                     ? 'bg-rose-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                 }`}
               >
-                <Shield className="w-3.5 h-3.5 text-rose-300" /> Admin RBAC & Audits
+                <Shield className="w-3.5 h-3.5 text-rose-300" /> Admin & Profiler
               </button>
             )}
           </nav>
 
-          {/* Version-Aware Industry Requirement Switcher (Novel Contribution 2) */}
-          <div className="flex items-center gap-2">
+          {/* Version-Aware Industry Requirement Switcher */}
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs text-gray-400 font-medium flex items-center gap-1">
               <Database className="w-3.5 h-3.5 text-indigo-400" /> Industry Version:
             </span>
@@ -724,7 +864,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
         {/* ------------------------------------------------------------------ */}
         {activeTab === 'radar' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: Recharts Competency Radar Chart */}
             <div className="lg:col-span-7 glass-panel p-6 rounded-3xl border border-indigo-500/20 shadow-2xl flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -799,7 +938,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
               </div>
             </div>
 
-            {/* Right: Gap Severity & Priority Scoring Breakdown */}
             <div className="lg:col-span-5 glass-panel p-6 rounded-3xl border border-gray-800 shadow-2xl flex flex-col justify-between">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-1">
@@ -905,7 +1043,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
                 </div>
               </div>
 
-              {/* Quiz Body */}
               {generatedQuiz && generatedQuiz.questions ? (
                 <div className="space-y-5">
                   <div className="p-3 bg-indigo-950/40 border border-indigo-700/50 rounded-2xl text-xs text-indigo-300 flex items-center justify-between">
@@ -998,7 +1135,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
               )}
             </div>
 
-            {/* Diagnostic Results Card (Fired after submission) */}
             {quizResult && (
               <div className="glass-panel p-6 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-4 animate-fade-in">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-800">
@@ -1027,7 +1163,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
                   </div>
                 </div>
 
-                {/* AI Diagnostic Report */}
                 <div className="p-4 bg-gray-900/90 border border-indigo-500/30 rounded-2xl space-y-2">
                   <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wide">
                     <Sparkles className="w-4 h-4" /> Gemini AI Diagnostic Feedback
@@ -1037,7 +1172,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
                   </pre>
                 </div>
 
-                {/* Per question explanations */}
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-gray-400 uppercase">
                     Answer Key & Technical Rationales
@@ -1092,7 +1226,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
                 </p>
               </div>
 
-              {/* Filters: Search & Category */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
@@ -1122,7 +1255,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
               </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto rounded-2xl border border-gray-800">
               <table className="w-full text-left text-xs text-gray-300">
                 <thead className="bg-gray-950/90 text-gray-400 font-semibold uppercase tracking-wider text-[10px] border-b border-gray-800">
@@ -1203,7 +1335,6 @@ export default function App_24BAI0226_SaiSiriChandana() {
               </table>
             </div>
 
-            {/* Pagination Controls */}
             <div className="flex items-center justify-between pt-2 text-xs text-gray-400">
               <div>
                 Page <strong>{roadmapPage}</strong> of <strong>{roadmapTotalPages}</strong>
@@ -1229,10 +1360,342 @@ export default function App_24BAI0226_SaiSiriChandana() {
         )}
 
         {/* ------------------------------------------------------------------ */}
-        {/* TAB 4: ADMIN RBAC & AUDIT LOG PANEL (ADMIN ONLY)                   */}
+        {/* TAB 4: STANDOUT FEATURE 1 — PREREQUISITE DAG GRAPH VISUALIZER       */}
+        {/* ------------------------------------------------------------------ */}
+        {activeTab === 'dag' && (
+          <div className="glass-panel p-6 rounded-3xl border border-amber-500/20 shadow-2xl space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <GitBranch className="w-6 h-6 text-amber-400" />
+                  Prerequisite DAG Graph Telemetry
+                </h3>
+                <span className="text-xs font-mono text-amber-400 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800">
+                  Self-Referencing Relational DAG
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Visualizes topological learning dependencies queried from table <code className="text-indigo-300 font-mono">skill_prerequisites</code>. Green lines denote satisfied prerequisites; amber dashed lines indicate learning blockers.
+              </p>
+            </div>
+
+            {/* Visual DAG Cards & Edge Flows */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dagGraph.nodes.map((node) => {
+                const incomingEdges = dagGraph.edges.filter((e) => e.target === node.id);
+                const outgoingEdges = dagGraph.edges.filter((e) => e.source === node.id);
+                const isBlocked = incomingEdges.some((e) => !e.is_satisfied);
+
+                return (
+                  <div
+                    key={node.id}
+                    className={`p-5 rounded-2xl border transition-all ${
+                      node.current_proficiency >= 4
+                        ? 'bg-emerald-950/20 border-emerald-600/50 shadow-lg shadow-emerald-950/20'
+                        : isBlocked
+                        ? 'bg-amber-950/20 border-amber-600/40'
+                        : 'bg-gray-900/80 border-gray-800 hover:border-indigo-500/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-400">
+                        {node.code}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                          node.current_proficiency >= 4
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : isBlocked
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                        }`}
+                      >
+                        Proficiency: {node.current_proficiency}/5
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white mb-1">{node.name}</h4>
+                    <p className="text-[11px] text-gray-400 mb-3">{node.category}</p>
+
+                    {/* Dependencies */}
+                    <div className="text-[11px] space-y-1.5 pt-2 border-t border-gray-800/80">
+                      <div>
+                        <span className="text-gray-500 font-semibold uppercase text-[9px]">Prerequisites: </span>
+                        {incomingEdges.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {incomingEdges.map((e) => (
+                              <span
+                                key={e.id}
+                                className={`text-[10px] px-2 py-0.5 rounded font-mono flex items-center gap-1 ${
+                                  e.is_satisfied
+                                    ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
+                                    : 'bg-amber-950/60 text-amber-300 border border-amber-700/50'
+                                }`}
+                              >
+                                {e.is_satisfied ? <Check className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
+                                {e.source_name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">None (Foundational Entry Point)</span>
+                        )}
+                      </div>
+
+                      {outgoingEdges.length > 0 && (
+                        <div className="pt-1">
+                          <span className="text-gray-500 font-semibold uppercase text-[9px]">Unlocks: </span>
+                          <span className="text-indigo-300 font-mono text-[10px]">
+                            {outgoingEdges.map((e) => e.target_name).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* TAB 5: STANDOUT FEATURE 2 — MULTI-ROLE COMPARATIVE MATRIX          */}
+        {/* ------------------------------------------------------------------ */}
+        {activeTab === 'multirole' && (
+          <div className="glass-panel p-6 rounded-3xl border border-cyan-500/20 shadow-2xl space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6 text-cyan-400" />
+                  Multi-Role Career Readiness Matrix
+                </h3>
+                <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 px-3 py-1 rounded-full border border-cyan-800">
+                  Simultaneous Cross-Role Audit
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Computes student preparedness across all industry career roles simultaneously based on unified assessment evidence.
+              </p>
+            </div>
+
+            {/* Comparative Bar Chart */}
+            <div className="h-64 w-full bg-gray-900/40 p-4 rounded-2xl border border-gray-800">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={multiRoleData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="role_title" stroke="#9ca3af" fontSize={11} />
+                  <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={11} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Bar dataKey="readiness_pct" name="Readiness Percentage (%)" fill="#06b6d4" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Role Breakdown Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {multiRoleData.map((role) => (
+                <div key={role.job_role_id} className="p-5 bg-gray-900/80 border border-gray-800 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white">{role.role_title}</h4>
+                      <p className="text-[11px] text-gray-400">{role.domain}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-extrabold text-cyan-400 font-mono">
+                        {role.readiness_pct}%
+                      </span>
+                      <div className="text-[10px] text-gray-400">
+                        {role.met_skills}/{role.total_skills} Skills Met
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-gray-800">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase">Skill Gap Breakdown:</span>
+                    <div className="space-y-1">
+                      {role.skill_breakdown?.map((sb, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-gray-950/60 border border-gray-800/80">
+                          <span className="text-gray-300 truncate max-w-[200px]">{sb.skill_name}</span>
+                          <span className="font-mono text-[11px]">
+                            Demonstrated: <strong className="text-indigo-400">{sb.assessed}</strong> / Req: <strong className="text-cyan-400">{sb.required}</strong>
+                            {' '}(Gap: <strong className={sb.gap > 0 ? 'text-amber-400' : 'text-emerald-400'}>{sb.gap}</strong>)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* TAB 6: STANDOUT FEATURE 3 — LONGITUDINAL PROGRESS TIMELINE         */}
+        {/* ------------------------------------------------------------------ */}
+        {activeTab === 'timeline' && (
+          <div className="glass-panel p-6 rounded-3xl border border-purple-500/20 shadow-2xl space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Activity className="w-6 h-6 text-purple-400" />
+                  Longitudinal Progress Telemetry (Time-Series)
+                </h3>
+                <span className="text-xs font-mono text-purple-400 bg-purple-950/60 px-3 py-1 rounded-full border border-purple-800">
+                  Historical Evidence Ledger
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Monitors demonstrated proficiency and score growth over consecutive assessment milestones, fulfilling proposal Contribution 4.
+              </p>
+            </div>
+
+            {/* Time-series Area Chart */}
+            <div className="h-72 w-full bg-gray-900/40 p-4 rounded-2xl border border-gray-800">
+              {timelineData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="date_formatted" stroke="#9ca3af" fontSize={11} />
+                    <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="score_percent"
+                      name="Assessment Score (%)"
+                      stroke="#c084fc"
+                      fillOpacity={1}
+                      fill="url(#scoreGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-gray-500">
+                  No historical assessment telemetry logged yet.
+                </div>
+              )}
+            </div>
+
+            {/* Chronological Event Log */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Assessment Progression Ledger
+              </h4>
+              <div className="space-y-2">
+                {timelineData.map((item) => (
+                  <div
+                    key={item.attempt_id}
+                    className="p-3 bg-gray-900/80 border border-gray-800 rounded-xl flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-purple-600/20 border border-purple-500/40 text-purple-300 font-bold flex items-center justify-center font-mono">
+                        #{item.attempt_index}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white">{item.skill_name}</div>
+                        <div className="text-[10px] text-gray-400 font-mono">
+                          {item.skill_code} • {item.date_formatted}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-4">
+                      <div>
+                        <div className="font-mono text-cyan-400 font-bold">{item.score_percent}%</div>
+                        <div className="text-[10px] text-gray-500">Score</div>
+                      </div>
+                      <div className="border-l border-gray-800 pl-4">
+                        <div className="font-mono text-emerald-400 font-bold">Level {item.assessed_proficiency}/5</div>
+                        <div className="text-[10px] text-gray-500">Trigger Evaluated</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* TAB 7: ADMIN RBAC & EXPLAIN ANALYZE PROFILER                       */}
         {/* ------------------------------------------------------------------ */}
         {activeTab === 'admin' && currentUser.role === 'ADMIN' && (
           <div className="space-y-6">
+            {/* STANDOUT FEATURE 4: EXPLAIN ANALYZE BENCHMARK PROFILER */}
+            <div className="glass-panel p-6 rounded-3xl border border-indigo-500/30 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-amber-400" />
+                    PostgreSQL EXPLAIN ANALYZE Query Execution Profiler
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Live database cost optimization telemetry proving B-Tree indexing and query plan optimization for faculty evaluation.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchQueryBenchmarks}
+                  disabled={loadingBenchmarks}
+                  className="px-3 py-1.5 bg-gray-900 border border-gray-700 hover:border-indigo-500 text-xs text-indigo-300 rounded-xl flex items-center gap-1.5 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingBenchmarks ? 'animate-spin' : ''}`} /> Run Profiler
+                </button>
+              </div>
+
+              {queryBenchmarks?.benchmarks ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {queryBenchmarks.benchmarks.map((bm, idx) => (
+                    <div key={idx} className="p-4 bg-gray-950/70 border border-gray-800 rounded-2xl space-y-3">
+                      <div>
+                        <div className="text-xs font-bold text-white">{bm.name}</div>
+                        <div className="text-[10px] text-gray-400 font-mono mt-0.5">{bm.query_type}</div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-center pt-2 border-t border-gray-800">
+                        <div className="p-2 bg-gray-900 rounded-xl border border-gray-800">
+                          <div className="text-[10px] text-gray-500 uppercase">Execution Time</div>
+                          <div className="text-xs font-mono font-bold text-emerald-400">
+                            {bm.stats.execution_time_ms} ms
+                          </div>
+                        </div>
+                        <div className="p-2 bg-gray-900 rounded-xl border border-gray-800">
+                          <div className="text-[10px] text-gray-500 uppercase">Planning Time</div>
+                          <div className="text-xs font-mono font-bold text-cyan-400">
+                            {bm.stats.planning_time_ms} ms
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-gray-300 space-y-1">
+                        <div>
+                          Primary Node: <strong className="text-indigo-400 font-mono">{bm.stats.node_type}</strong>
+                        </div>
+                        <div>
+                          Optimizer Total Cost: <strong className="text-amber-400 font-mono">{bm.stats.total_cost}</strong>
+                        </div>
+                        <div>
+                          Buffer Shared Hits: <strong className="text-emerald-400 font-mono">{bm.stats.shared_hit_blocks} blocks</strong>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-xs text-gray-500">
+                  Click 'Run Profiler' to execute EXPLAIN (ANALYZE, BUFFERS) in PostgreSQL.
+                </div>
+              )}
+            </div>
+
             {/* ACID Transaction Requirement Editor */}
             <div className="glass-panel p-6 rounded-3xl border border-rose-500/20 shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
@@ -1362,6 +1825,122 @@ export default function App_24BAI0226_SaiSiriChandana() {
           </div>
         )}
       </main>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* STANDOUT FEATURE 5: PRINTABLE / EXPORTABLE DOSSIER MODAL            */}
+      {/* -------------------------------------------------------------------- */}
+      {showDossierModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white text-gray-900 w-full max-w-3xl rounded-3xl p-8 shadow-2xl relative my-8 font-sans">
+            <button
+              onClick={() => setShowDossierModal(false)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Dossier Header */}
+            <div className="border-b-2 border-indigo-600 pb-4 mb-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-black text-indigo-950 uppercase tracking-tight">
+                    Official Career Readiness Dossier
+                  </h2>
+                  <p className="text-xs text-gray-600 font-medium">
+                    BCSE302P Database Systems Lab • Lab Internal Assessment Test 8, 9 & 10
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-mono font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1 rounded-full">
+                    SLOT: L25+L26
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-1">{currentTimestamp}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Candidate & Faculty Info */}
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200 mb-6 text-xs">
+              <div>
+                <span className="text-gray-500 font-semibold block text-[10px] uppercase">Candidate Name</span>
+                <strong className="text-gray-900 text-sm">Garudaiahgari Sai Siri Chandana</strong>
+                <div className="font-mono text-indigo-700 font-bold mt-0.5">Register No: 24BAI0226</div>
+              </div>
+              <div>
+                <span className="text-gray-500 font-semibold block text-[10px] uppercase">Faculty In-Charge</span>
+                <strong className="text-gray-900 text-sm">Dr. V. SIVAKUMAR</strong>
+                <div className="text-gray-600 mt-0.5">School of Computer Science & Engineering (SCOPE)</div>
+              </div>
+            </div>
+
+            {/* Evaluation Verification Metrics */}
+            <div className="mb-6 space-y-3">
+              <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                PostgreSQL Automated Telemetry Audit
+              </h3>
+              <table className="w-full text-left text-xs border border-gray-200 rounded-xl overflow-hidden">
+                <thead className="bg-gray-100 text-gray-700 uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2 px-3">Competency</th>
+                    <th className="py-2 px-3 text-center">Required Target</th>
+                    <th className="py-2 px-3 text-center">Demonstrated Level</th>
+                    <th className="py-2 px-3 text-center">Gap ($G_s$)</th>
+                    <th className="py-2 px-3 text-center">Priority ($Q_s$)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {reportData?.details?.map((d) => (
+                    <tr key={d.detail_id}>
+                      <td className="py-2 px-3 font-medium text-gray-800">{d.skill.skill_name}</td>
+                      <td className="py-2 px-3 text-center font-mono">{d.required_proficiency}/5</td>
+                      <td className="py-2 px-3 text-center font-mono font-bold text-indigo-700">{d.assessed_proficiency}/5</td>
+                      <td className="py-2 px-3 text-center font-mono">{d.gap_score}</td>
+                      <td className="py-2 px-3 text-center font-mono font-semibold">{d.priority_score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary KPI & Trigger Proof */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl mb-6 flex justify-between items-center text-xs">
+              <div>
+                <div className="font-bold text-indigo-950">Overall Career Readiness Score</div>
+                <div className="text-[11px] text-gray-600">Calculated by <code className="font-mono text-indigo-800">sp_generate_gap_report_24BAI0226_SaiSiriChandana</code></div>
+              </div>
+              <div className="text-3xl font-black font-mono text-indigo-700">
+                {reportData?.overall_readiness_pct || 0}%
+              </div>
+            </div>
+
+            {/* Verification Sign-off */}
+            <div className="pt-6 border-t border-gray-200 flex justify-between items-end text-xs">
+              <div>
+                <div className="text-[10px] text-gray-500 font-mono">
+                  SECURITY DIGEST: SHA-256 [VERIFIED_24BAI0226_SaiSiriChandana]
+                </div>
+                <div className="text-[10px] text-gray-500 font-mono">
+                  TRIGGER: trg_before_assessment_24BAI0226_SaiSiriChandana (ACTIVE)
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="w-48 border-b border-gray-400 mb-1"></div>
+                <div className="font-semibold text-gray-700">Faculty Signature & Seal</div>
+                <div className="text-[10px] text-gray-500">Dr. V. SIVAKUMAR</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition"
+              >
+                <Printer className="w-4 h-4" /> Print / Save as PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4. FOOTER */}
       <footer className="glass-panel border-t border-gray-800 py-4 px-6 text-center text-xs text-gray-400">

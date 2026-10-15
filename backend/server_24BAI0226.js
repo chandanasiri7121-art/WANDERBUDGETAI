@@ -853,6 +853,248 @@ app.post('/api/admin/requirements', authenticate_24BAI0226_SaiSiriChandana, requ
 });
 
 // ============================================================================
+// STANDOUT FEATURE 1: SKILL PREREQUISITE DAG GRAPH TELEMETRY
+// ============================================================================
+app.get('/api/skills/prerequisite-graph', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const [skills, prereqs, userAttempts] = await Promise.all([
+      prisma_24BAI0226_SaiSiriChandana.skill.findMany({
+        include: { resources: true },
+        orderBy: { skill_id: 'asc' },
+      }),
+      prisma_24BAI0226_SaiSiriChandana.skillPrerequisite.findMany({
+        include: { skill: true, prerequisite_skill: true },
+      }),
+      prisma_24BAI0226_SaiSiriChandana.assessmentAttempt.findMany({
+        where: { user_id: req.user.user_id },
+        orderBy: { attempted_at: 'desc' },
+      }),
+    ]);
+
+    const profMap = {};
+    for (const a of userAttempts) {
+      if (profMap[a.skill_id] === undefined) {
+        profMap[a.skill_id] = a.assessed_proficiency;
+      }
+    }
+
+    const nodes = skills.map((s) => {
+      const currentProf = profMap[s.skill_id] || 0;
+      return {
+        id: s.skill_id,
+        code: s.skill_code,
+        name: s.skill_name,
+        category: s.category,
+        current_proficiency: currentProf,
+        resource_count: s.resources.length,
+      };
+    });
+
+    const edges = prereqs.map((p) => {
+      const prereqProf = profMap[p.prerequisite_skill_id] || 0;
+      const isSatisfied = prereqProf >= 3;
+      return {
+        id: `${p.prerequisite_skill_id}->${p.skill_id}`,
+        source: p.prerequisite_skill_id,
+        target: p.skill_id,
+        source_name: p.prerequisite_skill.skill_name,
+        target_name: p.skill.skill_name,
+        is_satisfied: isSatisfied,
+      };
+    });
+
+    res.json({ nodes, edges });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate DAG prerequisite graph.', details: error.message });
+  }
+});
+
+// ============================================================================
+// STANDOUT FEATURE 2: MULTI-ROLE COMPARATIVE READINESS MATRIX
+// ============================================================================
+app.get('/api/skill-gaps/multi-role-comparison', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const roles = await prisma_24BAI0226_SaiSiriChandana.jobRole.findMany({
+      include: {
+        versions: {
+          where: { is_active: true },
+          include: {
+            requirements: {
+              include: { skill: true },
+            },
+            reports: {
+              where: { user_id: req.user.user_id },
+              orderBy: { generated_at: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const attempts = await prisma_24BAI0226_SaiSiriChandana.assessmentAttempt.findMany({
+      where: { user_id: req.user.user_id },
+      orderBy: { attempted_at: 'desc' },
+    });
+    const profMap = {};
+    attempts.forEach((a) => {
+      if (profMap[a.skill_id] === undefined) profMap[a.skill_id] = a.assessed_proficiency;
+    });
+
+    const comparison = roles.map((role) => {
+      const activeVer = role.versions[0];
+      if (!activeVer) {
+        return {
+          job_role_id: role.job_role_id,
+          role_title: role.title,
+          domain: role.domain,
+          readiness_pct: 0,
+          total_skills: 0,
+          met_skills: 0,
+        };
+      }
+
+      let metCount = 0;
+      const skillBreakdown = activeVer.requirements.map((reqItem) => {
+        const studentProf = profMap[reqItem.skill_id] || 0;
+        const gap = Math.max(reqItem.required_proficiency - studentProf, 0);
+        if (gap === 0) metCount++;
+        return {
+          skill_name: reqItem.skill.skill_name,
+          required: reqItem.required_proficiency,
+          assessed: studentProf,
+          gap,
+        };
+      });
+
+      const readinessPct = activeVer.requirements.length > 0
+        ? parseFloat(((metCount / activeVer.requirements.length) * 100).toFixed(2))
+        : 0;
+
+      return {
+        job_role_id: role.job_role_id,
+        role_title: role.title,
+        domain: role.domain,
+        version_label: activeVer.version_label,
+        readiness_pct: readinessPct,
+        total_skills: activeVer.requirements.length,
+        met_skills: metCount,
+        skill_breakdown: skillBreakdown,
+      };
+    });
+
+    res.json(comparison);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to compile multi-role comparison.', details: error.message });
+  }
+});
+
+// ============================================================================
+// STANDOUT FEATURE 3: LONGITUDINAL PROGRESS TIMELINE (TIME-SERIES)
+// ============================================================================
+app.get('/api/assessments/progress-timeline', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const attempts = await prisma_24BAI0226_SaiSiriChandana.assessmentAttempt.findMany({
+      where: { user_id: req.user.user_id },
+      include: { skill: true },
+      orderBy: { attempted_at: 'asc' },
+    });
+
+    const timeline = attempts.map((a, idx) => ({
+      attempt_index: idx + 1,
+      attempt_id: a.attempt_id,
+      skill_name: a.skill.skill_name,
+      skill_code: a.skill.skill_code,
+      category: a.skill.category,
+      score_percent: parseFloat(a.score_percent),
+      assessed_proficiency: a.assessed_proficiency,
+      timestamp: a.attempted_at,
+      date_formatted: new Date(a.attempted_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    }));
+
+    res.json(timeline);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve progress timeline.', details: error.message });
+  }
+});
+
+// ============================================================================
+// STANDOUT FEATURE 4: POSTGRESQL EXPLAIN ANALYZE BENCHMARK PROFILER
+// ============================================================================
+app.get('/api/admin/query-benchmarks', authenticate_24BAI0226_SaiSiriChandana, requireRole_24BAI0226_SaiSiriChandana(['ADMIN']), async (req, res) => {
+  try {
+    const viewExplain = await prisma_24BAI0226_SaiSiriChandana.$queryRawUnsafe(`
+      EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+      SELECT * FROM vw_student_roadmap_24BAI0226_SaiSiriChandana
+      WHERE user_id = ${req.user.user_id} AND version_id = 2
+      ORDER BY priority_score DESC;
+    `);
+
+    const indexedExplain = await prisma_24BAI0226_SaiSiriChandana.$queryRawUnsafe(`
+      EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+      SELECT * FROM assessment_attempts
+      WHERE user_id = ${req.user.user_id} AND skill_id = 1
+      ORDER BY attempted_at DESC LIMIT 1;
+    `);
+
+    const aggregateExplain = await prisma_24BAI0226_SaiSiriChandana.$queryRawUnsafe(`
+      EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+      SELECT 
+        s.category,
+        AVG(a.score_percent) as avg_score,
+        COUNT(a.attempt_id) as total_attempts,
+        MAX(a.assessed_proficiency) as peak_proficiency
+      FROM skills s
+      LEFT JOIN assessment_attempts a ON a.skill_id = s.skill_id
+      GROUP BY s.category;
+    `);
+
+    const parsePlan = (rawOutput) => {
+      const planObj = rawOutput[0]['QUERY PLAN'][0];
+      return {
+        execution_time_ms: planObj['Execution Time'],
+        planning_time_ms: planObj['Planning Time'],
+        node_type: planObj['Plan']['Node Type'],
+        total_cost: planObj['Plan']['Total Cost'],
+        shared_hit_blocks: planObj['Plan']['Shared Hit Blocks'] || 0,
+        shared_read_blocks: planObj['Plan']['Shared Read Blocks'] || 0,
+        plan_summary: planObj['Plan'],
+      };
+    };
+
+    res.json({
+      status: 'BENCHMARK_PROFILED',
+      auditor: 'Garudaiahgari Sai Siri Chandana (24BAI0226)',
+      benchmarks: [
+        {
+          name: 'Analytical View Query (vw_student_roadmap_24BAI0226_SaiSiriChandana)',
+          query_type: 'Multi-table View with Lateral Subqueries & String Aggregation',
+          stats: parsePlan(viewExplain),
+        },
+        {
+          name: 'Indexed B-Tree Lookup (assessment_attempts by user_id & skill_id)',
+          query_type: 'B-Tree Index Scan Optimization',
+          stats: parsePlan(indexedExplain),
+        },
+        {
+          name: 'Category Aggregate Metrics (AVG, COUNT, MAX Group By)',
+          query_type: 'HashAggregate with LEFT JOIN',
+          stats: parsePlan(aggregateExplain),
+        },
+      ],
+    });
+  } catch (error) {
+    console.error('EXPLAIN ANALYZE Error:', error);
+    res.status(500).json({ error: 'Failed to run query benchmarks.', details: error.message });
+  }
+});
+
+// ============================================================================
 // START SERVER
 // ============================================================================
 app.listen(PORT, () => {

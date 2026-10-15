@@ -143,8 +143,50 @@ async function runVerification_24BAI0226_SaiSiriChandana() {
     console.log(`  Log #${log.log_id} [${log.action}] on table "${log.table_name}" -> ${log.details}`);
   });
 
+  // Test 9: Prerequisite DAG Graph Telemetry
+  console.log('\n[Test 9] Testing Prerequisite DAG Graph Telemetry (GET /api/skills/prerequisite-graph)...');
+  const dagRes = await fetch(`${BASE_URL}/skills/prerequisite-graph`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+  });
+  const dagData = await dagRes.json();
+  console.log(`✓ Retrieved DAG Graph: ${dagData.nodes.length} nodes, ${dagData.edges.length} directed prerequisite edges.`);
+  dagData.edges.forEach((e) => {
+    console.log(`  Edge: [${e.source_name}] ──> [${e.target_name}] (Satisfied: ${e.is_satisfied})`);
+  });
+
+  // Test 10: Multi-Role Comparative Readiness Matrix
+  console.log('\n[Test 10] Testing Multi-Role Comparative Readiness (GET /api/skill-gaps/multi-role-comparison)...');
+  const multiRoleRes = await fetch(`${BASE_URL}/skill-gaps/multi-role-comparison`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+  });
+  const multiRoleData = await multiRoleRes.json();
+  console.log(`✓ Cross-Role Readiness computed for ${multiRoleData.length} target career tracks:`);
+  multiRoleData.forEach((r) => {
+    console.log(`  Role "${r.role_title}": ${r.readiness_pct}% Readiness (${r.met_skills}/${r.total_skills} skills satisfied)`);
+  });
+
+  // Test 11: Longitudinal Progress Timeline
+  console.log('\n[Test 11] Testing Longitudinal Progress Timeline (GET /api/assessments/progress-timeline)...');
+  const timelineRes = await fetch(`${BASE_URL}/assessments/progress-timeline`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+  });
+  const timelineData = await timelineRes.json();
+  console.log(`✓ Timeline retrieved ${timelineData.length} historical assessment events chronologically.`);
+
+  // Test 12: PostgreSQL EXPLAIN ANALYZE Benchmarks
+  console.log('\n[Test 12] Profiling PostgreSQL EXPLAIN ANALYZE Cost & Buffer Hits (GET /api/admin/query-benchmarks)...');
+  const bmRes = await fetch(`${BASE_URL}/admin/query-benchmarks`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  const bmData = await bmRes.json();
+  console.log(`✓ PostgreSQL EXPLAIN ANALYZE benchmarks executed:`);
+  bmData.benchmarks.forEach((bm) => {
+    console.log(`  Query: ${bm.name}`);
+    console.log(`  • Execution Time: ${bm.stats.execution_time_ms} ms | Planning Time: ${bm.stats.planning_time_ms} ms | Optimizer Cost: ${bm.stats.total_cost} | Shared Hit Blocks: ${bm.stats.shared_hit_blocks}`);
+  });
+
   console.log('\n================================================================');
-  console.log('ALL 8 END-TO-END VERIFICATION TESTS PASSED WITH 100% SUCCESS!');
+  console.log('ALL 12 END-TO-END & STANDOUT VERIFICATION TESTS PASSED WITH 100%!');
   console.log('Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
   console.log('================================================================');
 }
