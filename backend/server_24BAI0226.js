@@ -1437,6 +1437,191 @@ app.get('/api/simulator/shared-skill-optimization', authenticate_24BAI0226_SaiSi
 });
 
 // ============================================================================
+// OPTIONAL FEATURE: AI-ASSISTED JOB DESCRIPTION ANALYSIS & VERSION APPROVAL
+// ============================================================================
+app.post('/api/admin/job-description-analysis', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    if (req.user.role.role_name !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    }
+
+    const { job_description_text, target_role_id } = req.body;
+    if (!job_description_text || job_description_text.trim().length < 20) {
+      return res.status(400).json({ error: 'A valid job description text (minimum 20 characters) is required.' });
+    }
+
+    // Fetch canonical skills catalogue from PostgreSQL
+    const allSkills = await prisma_24BAI0226_SaiSiriChandana.skill.findMany();
+
+    let extractedSkills = [];
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (apiKey && apiKey !== 'mock_api_key_for_testing') {
+      try {
+        const prompt = `You are a precision NLP skill parser. Analyze the following enterprise job description text.
+Extract candidate technical skills, recommend the matching canonical skill from the catalogue below, and estimate proficiency (1-5) and importance weight (1-5).
+Canonical Skills Catalogue:
+${allSkills.map((s) => `- ID ${s.skill_id}: "${s.skill_name}" (Category: ${s.category})`).join('\n')}
+
+Job Description:
+"""${job_description_text.slice(0, 3000)}"""
+
+Return ONLY a valid JSON array of objects with the exact schema:
+[
+  {
+    "canonical_skill_id": number,
+    "extracted_text": string,
+    "suggested_proficiency": number (1-5),
+    "importance_weight": number (1-5),
+    "confidence_pct": number (0-100),
+    "is_uncertain": boolean,
+    "source_snippet": string
+  }
+]`;
+
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: 'application/json' },
+            }),
+          }
+        );
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            extractedSkills = JSON.parse(rawText);
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini AI online call failed, utilizing deterministic keyword fallback:', geminiErr.message);
+      }
+    }
+
+    // Deterministic fallback matching if AI is disabled or offline
+    if (!extractedSkills || extractedSkills.length === 0) {
+      const lowerJD = job_description_text.toLowerCase();
+      allSkills.forEach((s) => {
+        const lowerName = s.skill_name.toLowerCase();
+        const keywords = lowerName.split(/[\s&,/()]+/).filter((w) => w.length > 2);
+        let matched = lowerJD.includes(lowerName);
+        let matchSnippet = '';
+
+        if (!matched) {
+          matched = keywords.some((k) => lowerJD.includes(k));
+        }
+
+        if (matched) {
+          const idx = lowerJD.indexOf(keywords[0]);
+          const start = Math.max(0, idx - 30);
+          const end = Math.min(job_description_text.length, idx + 70);
+          matchSnippet = job_description_text.slice(start, end).trim();
+
+          extractedSkills.push({
+            canonical_skill_id: s.skill_id,
+            canonical_skill_name: s.skill_name,
+            extracted_text: s.skill_name,
+            suggested_proficiency: 4,
+            importance_weight: 4,
+            confidence_pct: lowerJD.includes(lowerName) ? 95 : 75,
+            is_uncertain: !lowerJD.includes(lowerName),
+            source_snippet: matchSnippet ? `...${matchSnippet}...` : 'Explicitly referenced in job description requirements.',
+          });
+        }
+      });
+    } else {
+      // Enrich AI output with canonical skill names
+      extractedSkills = extractedSkills.map((es) => {
+        const found = allSkills.find((s) => s.skill_id === es.canonical_skill_id);
+        return {
+          ...es,
+          canonical_skill_name: found ? found.skill_name : 'Custom Skill',
+          category: found ? found.category : 'GENERAL',
+        };
+      });
+    }
+
+    res.json({
+      message: 'Job description analyzed successfully. Awaiting human administrator review and version publication.',
+      total_extracted: extractedSkills.length,
+      ai_provider_active: Boolean(apiKey && apiKey !== 'mock_api_key_for_testing'),
+      extracted_skills: extractedSkills,
+    });
+  } catch (error) {
+    console.error('Job Description Analysis Error:', error);
+    res.status(500).json({ error: 'Failed to analyze job description.', details: error.message });
+  }
+});
+
+// Administrator Review & Publish New Requirement Version
+app.post('/api/admin/job-description-analysis/approve', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    if (req.user.role.role_name !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    }
+
+    const { job_role_id, new_version_number, version_label, approved_requirements } = req.body;
+    if (!job_role_id || !new_version_number || !Array.isArray(approved_requirements) || approved_requirements.length === 0) {
+      return res.status(400).json({
+        error: 'job_role_id, new_version_number, and a non-empty approved_requirements array are required.',
+      });
+    }
+
+    const result = await prisma_24BAI0226_SaiSiriChandana.$transaction(async (tx) => {
+      // 1. Create new JobRoleVersion
+      const version = await tx.jobRoleVersion.create({
+        data: {
+          job_role_id: parseInt(job_role_id, 10),
+          version_number: new_version_number,
+          version_label: version_label || `${new_version_number} Published from Job Description Analysis`,
+          is_active: true,
+        },
+      });
+
+      // 2. Insert approved requirements
+      for (const reqItem of approved_requirements) {
+        await tx.jobRequirement.create({
+          data: {
+            version_id: version.version_id,
+            skill_id: parseInt(reqItem.canonical_skill_id, 10),
+            required_proficiency: parseInt(reqItem.suggested_proficiency || 4, 10),
+            importance_weight: parseInt(reqItem.importance_weight || 5, 10),
+          },
+        });
+      }
+
+      // 3. Create Audit Log
+      await tx.auditLog.create({
+        data: {
+          user_id: req.user.user_id,
+          action: 'PUBLISH_VERSION_FROM_JD',
+          table_name: 'job_role_versions',
+          record_id: version.version_id,
+          details: `Admin ${req.user.full_name} published ${new_version_number} with ${approved_requirements.length} skills from Job Description analysis.`,
+        },
+      });
+
+      return version;
+    });
+
+    res.json({
+      message: 'New Job Role Version successfully published and committed to PostgreSQL.',
+      version_id: result.version_id,
+      version_number: result.version_number,
+      requirements_count: approved_requirements.length,
+    });
+  } catch (error) {
+    console.error('Approve JD Error:', error);
+    res.status(500).json({ error: 'Failed to approve and publish requirements version.', details: error.message });
+  }
+});
+
+// ============================================================================
 // START SERVER
 // ============================================================================
 app.listen(PORT, () => {

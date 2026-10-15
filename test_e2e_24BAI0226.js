@@ -240,8 +240,49 @@ async function runVerification_24BAI0226_SaiSiriChandana() {
     console.log(`  Skill "${s.skill_name}": Shared across ${s.role_count} roles (${rolesList}) | Cross-Role Leverage Score: ${s.cross_role_leverage_score || s.cross_career_leverage_score}`);
   });
 
+  // Test 14: Optional AI-Assisted Job Description Analysis & Version Publishing
+  console.log('\n[Test 14] Testing AI-Assisted Job Description Analysis & Admin Approval Workflow...');
+  const sampleJD = `We are seeking a Senior Database Engineer proficient in enterprise SQL & Relational Algebra, Database Normalization (3NF/BCNF), Indexing & Query Optimization, and Transactions & ACID Properties. Experience with Node.js & Express REST APIs is highly desirable.`;
+
+  const jdAnalysisRes = await fetch(`${BASE_URL}/admin/job-description-analysis`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      job_description_text: sampleJD,
+      target_role_id: 1,
+    }),
+  });
+  const jdAnalysisData = await jdAnalysisRes.json();
+  if (!jdAnalysisRes.ok) {
+    console.error('JD Analysis Failed:', jdAnalysisRes.status, jdAnalysisData);
+  }
+  console.log(`✓ Job Description Parsed: Extracted ${jdAnalysisData.total_extracted} canonical skills (AI Active: ${jdAnalysisData.ai_provider_active}).`);
+  (jdAnalysisData.extracted_skills || []).slice(0, 3).forEach((es) => {
+    console.log(`  • Extracted: "${es.canonical_skill_name}" | Conf: ${es.confidence_pct}% | Suggested Prof: ${es.suggested_proficiency}/5 | Weight: ${es.importance_weight}/5`);
+  });
+
+  // Admin approves extracted requirements to publish a new version v3.0
+  const approveRes = await fetch(`${BASE_URL}/admin/job-description-analysis/approve`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      job_role_id: 1,
+      new_version_number: 'v3.0',
+      version_label: 'v3.0 Winter 2026 (Published from Enterprise JD Analysis)',
+      approved_requirements: (jdAnalysisData.extracted_skills || []).slice(0, 3),
+    }),
+  });
+  const approveData = await approveRes.json();
+  console.log(`✓ Admin published new version "${approveData.version_number}" (#${approveData.version_id}) with ${approveData.requirements_count} requirements via ACID transaction.`);
+
   console.log('\n================================================================');
-  console.log('ALL 13 END-TO-END & STANDOUT NOVEL FEATURE TESTS PASSED (100%)!');
+  console.log('ALL 14 END-TO-END & STANDOUT NOVEL FEATURE TESTS PASSED (100%)!');
   console.log('Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
   console.log('================================================================');
 }

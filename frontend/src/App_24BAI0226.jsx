@@ -158,6 +158,15 @@ export default function App_24BAI0226_SaiSiriChandana() {
     importance_weight: 5,
   });
   const [adminNotice, setAdminNotice] = useState('');
+  const [jdInputText, setJdInputText] = useState(
+    'Seeking a Senior Database Engineer proficient in enterprise SQL & Relational Algebra, Database Normalization (3NF/BCNF), Indexing & Query Optimization, and Transactions & ACID Properties. Experience with Node.js & Express REST APIs is highly desirable.'
+  );
+  const [jdTargetRoleId, setJdTargetRoleId] = useState(1);
+  const [analyzingJd, setAnalyzingJd] = useState(false);
+  const [extractedJdData, setExtractedJdData] = useState(null);
+  const [jdNewVersionNumber, setJdNewVersionNumber] = useState('v3.0');
+  const [approvingJd, setApprovingJd] = useState(false);
+  const [jdFeedback, setJdFeedback] = useState(null);
 
   // --------------------------------------------------------------------------
   // AUTH METHODS
@@ -653,6 +662,74 @@ export default function App_24BAI0226_SaiSiriChandana() {
       fetchQueryBenchmarks();
     } catch (err) {
       setAdminNotice(`Error: ${err.message}`);
+    }
+  };
+
+  const handleAnalyzeJobDescription = async (e) => {
+    if (e) e.preventDefault();
+    if (!jdInputText || jdInputText.trim().length < 20) {
+      alert('Please enter a detailed job description (minimum 20 characters).');
+      return;
+    }
+    setAnalyzingJd(true);
+    setJdFeedback(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/job-description-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          job_description_text: jdInputText,
+          target_role_id: parseInt(jdTargetRoleId, 10),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to analyze job description.');
+      setExtractedJdData(data);
+      setJdFeedback({
+        type: 'success',
+        message: `Analysis complete: Extracted ${data.total_extracted} canonical skills (AI Engine: ${
+          data.ai_provider_active ? 'Online' : 'Deterministic Fallback'
+        }).`,
+      });
+    } catch (err) {
+      setJdFeedback({ type: 'error', message: err.message });
+    } finally {
+      setAnalyzingJd(false);
+    }
+  };
+
+  const handleApproveJdVersion = async () => {
+    if (!extractedJdData || !extractedJdData.extracted_skills || extractedJdData.extracted_skills.length === 0) return;
+    setApprovingJd(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/job-description-analysis/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          job_role_id: parseInt(jdTargetRoleId, 10),
+          new_version_number: jdNewVersionNumber,
+          version_label: `${jdNewVersionNumber} Published via JD Intelligence Analysis`,
+          approved_requirements: extractedJdData.extracted_skills,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish version.');
+      setJdFeedback({
+        type: 'success',
+        message: `Published Version ${data.version_number} (#${data.version_id}) with ${data.requirements_count} requirements to PostgreSQL!`,
+      });
+      fetchCareerRoles();
+      fetchAuditLogs(1);
+    } catch (err) {
+      setJdFeedback({ type: 'error', message: err.message });
+    } finally {
+      setApprovingJd(false);
     }
   };
 
@@ -2531,6 +2608,144 @@ export default function App_24BAI0226_SaiSiriChandana() {
                   </button>
                 </div>
               </form>
+            </div>
+
+            {/* OPTIONAL AI/NLP FEATURE: JOB DESCRIPTION ANALYSIS & VERSION PUBLISHER */}
+            <div className="glass-panel p-6 rounded-3xl border border-cyan-500/30 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-cyan-400" />
+                    AI-Assisted Job Description Analysis & Version Publishing
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Extracts candidate technical competencies from unformatted employer job postings and maps them to canonical PostgreSQL skills.
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono px-2.5 py-1 bg-cyan-950 text-cyan-300 border border-cyan-800 rounded-full">
+                  Admin Verification Gate
+                </span>
+              </div>
+
+              {jdFeedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs flex items-center gap-2 border ${
+                    jdFeedback.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
+                      : 'bg-rose-950/70 border-rose-500/50 text-rose-300'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{jdFeedback.message}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleAnalyzeJobDescription} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-300 mb-1">
+                      Paste Employer Job Description (minimum 20 characters)
+                    </label>
+                    <textarea
+                      rows="3"
+                      value={jdInputText}
+                      onChange={(e) => setJdInputText(e.target.value)}
+                      placeholder="Paste full text of hiring requirements..."
+                      className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    ></textarea>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1">Target Career Role</label>
+                      <select
+                        value={jdTargetRoleId}
+                        onChange={(e) => setJdTargetRoleId(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      >
+                        {careerRoles.map((r) => (
+                          <option key={r.role_id} value={r.role_id}>
+                            {r.role_title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={analyzingJd}
+                      className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50"
+                    >
+                      {analyzingJd ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      Parse & Extract Competencies
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Parsed Competency Review Table */}
+              {extractedJdData?.extracted_skills && extractedJdData.extracted_skills.length > 0 && (
+                <div className="space-y-3 pt-3 border-t border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Extracted Candidate Competencies ({extractedJdData.extracted_skills.length})
+                    </h4>
+                    <span className="text-[10px] text-gray-400">
+                      Human Review Gate: Verify matches before publishing a new version.
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-gray-800">
+                    <table className="w-full text-left text-xs text-gray-300">
+                      <thead className="bg-gray-950 text-gray-400 uppercase text-[10px] border-b border-gray-800">
+                        <tr>
+                          <th className="py-2 px-3">Canonical Skill</th>
+                          <th className="py-2 px-3 text-center">Confidence</th>
+                          <th className="py-2 px-3 text-center">Suggested Proficiency</th>
+                          <th className="py-2 px-3 text-center">Importance</th>
+                          <th className="py-2 px-3">Source Excerpt</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/60 bg-gray-900/40">
+                        {extractedJdData.extracted_skills.map((es, idx) => (
+                          <tr key={idx} className="hover:bg-gray-800/30">
+                            <td className="py-2 px-3 font-medium text-white">{es.canonical_skill_name}</td>
+                            <td className="py-2 px-3 text-center font-mono text-cyan-300">{es.confidence_pct}%</td>
+                            <td className="py-2 px-3 text-center font-mono text-indigo-300 font-bold">{es.suggested_proficiency}/5</td>
+                            <td className="py-2 px-3 text-center font-mono text-amber-300">{es.importance_weight}x</td>
+                            <td className="py-2 px-3 text-[11px] text-gray-400 italic max-w-xs truncate" title={es.source_snippet}>
+                              {es.source_snippet}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Approve & Publish Form */}
+                  <div className="p-4 bg-gray-950/70 border border-cyan-500/30 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <label className="text-xs text-gray-300 font-medium whitespace-nowrap">Publish Version Number:</label>
+                      <input
+                        type="text"
+                        value={jdNewVersionNumber}
+                        onChange={(e) => setJdNewVersionNumber(e.target.value)}
+                        placeholder="e.g. v3.0"
+                        className="bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white w-24 font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleApproveJdVersion}
+                      disabled={approvingJd}
+                      className="w-full sm:w-auto px-5 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      {approvingJd ? 'Publishing Version...' : 'Approve & Publish Version to PostgreSQL'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live Audit Logs Table */}
