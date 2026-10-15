@@ -4,7 +4,7 @@ import {
   AlertTriangle, ShieldCheck, CheckCircle2, Search, ArrowRight, RefreshCw,
   PlusCircle, CreditCard, ChevronRight, PieChart as PieIcon, BarChart3,
   Hotel, Utensils, Bus, Camera, ShieldAlert, Award, FileText, Database,
-  Activity, Layers, Info, Check, LogOut, UserCheck, Globe
+  Activity, Layers, Info, Check, LogOut, UserCheck, Globe, Key, Cpu
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
@@ -266,11 +266,60 @@ export default function App_WanderBudget_24BAI0226() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [systemHealth, setSystemHealth] = useState(null);
 
+  // Gemini & External API Status State
+  const [showApiModal, setShowApiModal] = useState(false);
+  const [apiStatus, setApiStatus] = useState(null);
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+  const [keySaveMessage, setKeySaveMessage] = useState(null);
+
+  const fetchApiStatus = async () => {
+    try {
+      const res = await fetch('/api/system/api-status');
+      if (res.ok) {
+        const data = await res.json();
+        setApiStatus(data);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleSaveGeminiKey = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!geminiKeyInput || geminiKeyInput.trim().length < 8) {
+      setKeySaveMessage({ type: 'error', text: 'Please enter a valid Gemini API key (starts with AIzaSy...)' });
+      return;
+    }
+    setSavingKey(true);
+    setKeySaveMessage(null);
+    try {
+      const res = await fetch('/api/system/save-gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: geminiKeyInput.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setKeySaveMessage({ type: 'success', text: data.message });
+        setGeminiKeyInput('');
+        fetchApiStatus();
+      } else {
+        setKeySaveMessage({ type: 'error', text: data.error || 'Failed to save key' });
+      }
+    } catch (err) {
+      setKeySaveMessage({ type: 'error', text: err.message });
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
   // 1. Initial Load: Login & Fetch Master Data
   useEffect(() => {
     async function init() {
       try {
         setLoading(true);
+        fetchApiStatus();
         // Login default traveler
         const loginRes = await fetch('/api/auth/login', {
           method: 'POST',
@@ -793,8 +842,24 @@ export default function App_WanderBudget_24BAI0226() {
           </div>
         </div>
 
-        {/* User Role Badge */}
         <div className="flex items-center gap-3">
+          {/* AI Search Engine & API Keys Button */}
+          <button
+            onClick={() => setShowApiModal(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+              apiStatus?.gemini_configured
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-sm shadow-emerald-500/20'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+            }`}
+            title="Configure Google Gemini API Key & Live Search Providers"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>
+              {apiStatus?.gemini_configured ? '🟢 Gemini 1.5 Flash Active' : '⚡ AI Engine / API Keys'}
+            </span>
+          </button>
+
+          {/* User Role Badge */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
             <UserCheck className="w-3.5 h-3.5 text-teal-400" />
             <span className="font-medium text-slate-300">{user?.full_name?.split(' ')[0]}</span>
@@ -2856,6 +2921,123 @@ export default function App_WanderBudget_24BAI0226() {
           <span>Slot: L25+L26</span>
         </div>
       </footer>
+
+      {/* 5. API KEYS & AI ENGINE CONFIGURATION MODAL */}
+      {showApiModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-100">AI Search Engine & API Integrations</h3>
+                  <p className="text-xs text-slate-400">Configure real-time web research & external data providers</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowApiModal(false); setKeySaveMessage(null); }}
+                className="text-slate-400 hover:text-slate-200 text-sm p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Provider 1: Google Gemini */}
+            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-medium text-slate-200">Google Gemini Generative AI</span>
+                </div>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-medium ${
+                  apiStatus?.gemini_configured
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {apiStatus?.gemini_configured ? '🟢 Active & Connected' : '⚪ Fallback Heuristic Active'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Powers real-time generative analysis for <strong className="text-slate-300">any obscure town or village worldwide</strong>. Discovers authentic tourist attractions, local transport fares, food costs, and currency benchmarks dynamically.
+              </p>
+
+              {apiStatus?.gemini_configured && (
+                <div className="text-xs text-emerald-400/90 bg-emerald-950/30 border border-emerald-800/40 rounded-lg p-2.5 flex items-center justify-between">
+                  <span>Connected Key: <code className="font-mono">{apiStatus.gemini_masked_key}</code></span>
+                  <span className="text-[10px] text-slate-400">Gemini 1.5 Flash</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveGeminiKey} className="space-y-2 pt-1">
+                <label className="text-xs text-slate-300 font-medium block">
+                  {apiStatus?.gemini_configured ? 'Update Gemini API Key:' : 'Enter Google Gemini API Key:'}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="AIzaSy..."
+                    value={geminiKeyInput}
+                    onChange={(e) => setGeminiKeyInput(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingKey || !geminiKeyInput}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-xs transition-all shadow-md shadow-emerald-600/20"
+                  >
+                    {savingKey ? 'Saving...' : 'Connect'}
+                  </button>
+                </div>
+                {keySaveMessage && (
+                  <p className={`text-xs ${keySaveMessage.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {keySaveMessage.text}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500">
+                  Tip: Obtain a free Gemini API key from <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-teal-400 underline hover:text-teal-300">Google AI Studio</a>.
+                </p>
+              </form>
+            </div>
+
+            {/* Provider 2: Foreign Exchange Rates */}
+            <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-medium text-slate-200">Live Foreign Exchange (FX) Feed</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">Real-time open currency rates API with 1-hr TTL cache</p>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">
+                🟢 Live Active
+              </span>
+            </div>
+
+            {/* Provider 3: Custom Datasets (CSV / JSON) */}
+            <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+              <div className="flex items-center gap-2 mb-1">
+                <Database className="w-4 h-4 text-violet-400" />
+                <span className="text-xs font-medium text-slate-200">Custom Datasets (CSV / JSON)</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Have a specialized cost-of-living or tourist attraction dataset (e.g. Numbeo, Wikivoyage, or Ministry of Tourism)? Drop the file into the project directory and WanderBudget will batch ingest it directly into PostgreSQL.
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowApiModal(false); setKeySaveMessage(null); }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

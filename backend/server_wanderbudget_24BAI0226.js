@@ -219,6 +219,84 @@ async function getLiveFxRateToInr(currencyCode, fallbackRate = 1.0) {
   return fallbackRate;
 }
 
+// Live Generative AI Destination Analysis using Google Gemini
+async function analyzeDestinationViaGemini(cityName) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '' || apiKey === 'YOUR_GEMINI_API_KEY') {
+    return null;
+  }
+
+  try {
+    const prompt = `You are a professional travel economist and tourism researcher.
+Analyze the destination "${cityName}". Return ONLY a valid JSON object (no markdown, no backticks, no explanations) with this exact schema:
+{
+  "country": "Full country name",
+  "currency": "3-letter ISO currency code e.g. USD, EUR, JPY, INR",
+  "symbol": "Currency symbol e.g. $, €, ¥, ₹",
+  "exchange_rate_to_inr": number representing how many INR equal 1 unit of local currency,
+  "daily_accommodation_budget": number in local currency per night for budget stay/hostel,
+  "daily_accommodation_standard": number in local currency per night for 3-star hotel,
+  "daily_accommodation_luxury": number in local currency per night for 5-star/resort,
+  "daily_food_budget": number in local currency per day for street food & local diners,
+  "daily_food_standard": number in local currency per day for sit-down restaurants,
+  "daily_food_luxury": number in local currency per day for fine dining,
+  "daily_transit_public": number in local currency per day for metro/bus transit pass,
+  "daily_taxi_per_km": number in local currency per km for local taxi/cab,
+  "cost_index_score": integer between 10 and 100 relative to New York (100),
+  "overview": "Concise 2-sentence cultural, geographic, and travel description",
+  "attractions": [
+    {
+      "name": "Actual authentic tourist attraction or landmark name in ${cityName}",
+      "category": "Temple / Fort / Museum / Nature / Beach / Viewpoint / Market / Palace",
+      "ticket_price_local": number ticket price in local currency (0 if free),
+      "avg_duration_hours": number estimated visit time in hours (e.g. 2.5)
+    }
+  ]
+}
+Ensure at least 5 authentic, real tourist attractions for ${cityName}.`;
+
+    // Try Gemini 1.5 Flash first, then Gemini 2.0 Flash
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              response_mime_type: 'application/json',
+              temperature: 0.2
+            }
+          }),
+          signal: AbortSignal.timeout(9000)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const cleanJsonStr = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanJsonStr);
+            if (parsed.country && parsed.currency && Array.isArray(parsed.attractions) && parsed.attractions.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      } catch (errInner) {
+        // Continue to next endpoint or return null
+      }
+    }
+  } catch (err) {
+    console.warn(`[Gemini AI] Query error for ${cityName}:`, err.message);
+  }
+  return null;
+}
+
 // Destination benchmark knowledge base for real-world live synthesis
 const GLOBAL_COST_BENCHMARKS = {
   'hyderabad': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 850, acc_s: 2400, acc_l: 7500, meal_b: 400, meal_s: 950, meal_l: 2400, transit: 350, taxi: 20,
@@ -1013,76 +1091,107 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
 
-    // Match benchmarks
-    let benchmarkKey = Object.keys(GLOBAL_COST_BENCHMARKS).find(k => queryClean.includes(k) || k.includes(queryClean));
     let data;
 
-    if (benchmarkKey) {
-      data = GLOBAL_COST_BENCHMARKS[benchmarkKey];
+    // 1. Try Live Generative AI via Google Gemini if API Key is configured
+    const geminiData = await analyzeDestinationViaGemini(formattedCity);
+    if (geminiData) {
+      data = {
+        country: geminiData.country || 'International',
+        currency: geminiData.currency || 'USD',
+        symbol: geminiData.symbol || '¤',
+        rate: Number(geminiData.exchange_rate_to_inr) || 1.0,
+        acc_b: Number(geminiData.daily_accommodation_budget) || 1200,
+        acc_s: Number(geminiData.daily_accommodation_standard) || 3000,
+        acc_l: Number(geminiData.daily_accommodation_luxury) || 8500,
+        meal_b: Number(geminiData.daily_food_budget) || 500,
+        meal_s: Number(geminiData.daily_food_standard) || 1200,
+        meal_l: Number(geminiData.daily_food_luxury) || 3200,
+        transit: Number(geminiData.daily_transit_public) || 350,
+        taxi: Number(geminiData.daily_taxi_per_km) || 25,
+        source: 'GOOGLE_GEMINI_LIVE_AI',
+        description: geminiData.overview || `Live AI research for ${formattedCity}, ${geminiData.country}.`,
+        attractions: Array.isArray(geminiData.attractions) ? geminiData.attractions.map(a => ({
+          name: a.name,
+          category: a.category || 'Tourist Landmark',
+          price: Number(a.ticket_price_local) || 0,
+          hours: Number(a.avg_duration_hours) || 2.0
+        })) : []
+      };
     } else {
-      // Dynamic AI Synthesis with Country Knowledge Lookup
-      let matchedCountryKey = Object.keys(WORLD_COUNTRY_LOOKUP).find(k => queryClean.includes(k) || k.includes(queryClean));
+      // 2. Match local curated benchmarks
+      let benchmarkKey = Object.keys(GLOBAL_COST_BENCHMARKS).find(k => queryClean.includes(k) || k.includes(queryClean));
 
-      if (matchedCountryKey) {
-        const cInfo = WORLD_COUNTRY_LOOKUP[matchedCountryKey];
-        data = {
-          country: cInfo.country,
-          currency: cInfo.currency,
-          symbol: cInfo.symbol,
-          rate: cInfo.rate,
-          acc_b: Math.round(3500 / cInfo.rate),
-          acc_s: Math.round(10000 / cInfo.rate),
-          acc_l: Math.round(28000 / cInfo.rate),
-          meal_b: Math.round(1600 / cInfo.rate),
-          meal_s: Math.round(4500 / cInfo.rate),
-          meal_l: Math.round(12000 / cInfo.rate),
-          transit: Math.round(650 / cInfo.rate),
-          taxi: Math.round(160 / cInfo.rate),
-          attractions: [
-            { name: `${formattedCity} National Heritage & Cultural Landmark`, category: 'Historic Landmark', price: Math.round(1200 / cInfo.rate), hours: 2.5 },
-            { name: `${formattedCity} Royal Palace & Historical Museum`, category: 'Palace Museum', price: Math.round(1600 / cInfo.rate), hours: 3.0 },
-            { name: `${formattedCity} Scenic Waterfront / Mountain Viewpoint`, category: 'Scenic Nature', price: Math.round(800 / cInfo.rate), hours: 2.0 },
-            { name: `${formattedCity} Traditional Old Town & Cultural Market Walk`, category: 'Cultural Quarter', price: 0, hours: 2.5 }
-          ]
-        };
+      if (benchmarkKey) {
+        data = { ...GLOBAL_COST_BENCHMARKS[benchmarkKey], source: 'CURATED_BENCHMARK' };
       } else {
-        // Check if query is Indian or default
-        const indianPatterns = [
-          'india', 'andhra', 'telangana', 'karnataka', 'tamil', 'kerala', 'maharashtra', 'gujarat',
-          'rajasthan', 'punjab', 'bengal', 'odisha', 'bihar', 'up', 'uttar', 'madhya', 'himachal',
-          'kashmir', 'patna', 'indore', 'bhubaneswar', 'madurai', 'trivandrum', 'thiruvananthapuram',
-          'calicut', 'kozhikode', 'mangalore', 'mangaluru', 'mysore', 'pune', 'nagpur', 'surat',
-          'vadodara', 'ahmedabad', 'ranchi', 'guwahati', 'shillong', 'gangtok', 'darjeeling',
-          'jodhpur', 'jaisalmer', 'bikaner', 'pushkar', 'ajmer', 'mathura', 'vrindavan', 'haridwar',
-          'dehradun', 'nainital', 'mussoorie', 'kullu', 'dharamshala', 'dalhousie', 'hampi',
-          'puri', 'ongole', 'guntur', 'chittoor', 'kadapa', 'kurnool', 'tirupati', 'tirumala'
-        ];
-        const isDomestic = indianPatterns.some(p => queryClean.includes(p)) ||
-          queryClean.endsWith('am') || queryClean.endsWith('puram') || queryClean.endsWith('palli') || queryClean.endsWith('pet') || queryClean.endsWith('konda');
+        // 3. Dynamic AI Synthesis with Country Knowledge Lookup
+        let matchedCountryKey = Object.keys(WORLD_COUNTRY_LOOKUP).find(k => queryClean.includes(k) || k.includes(queryClean));
 
-        if (isDomestic) {
+        if (matchedCountryKey) {
+          const cInfo = WORLD_COUNTRY_LOOKUP[matchedCountryKey];
           data = {
-            country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
-            acc_b: 750, acc_s: 2200, acc_l: 6800, meal_b: 380, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
+            country: cInfo.country,
+            currency: cInfo.currency,
+            symbol: cInfo.symbol,
+            rate: cInfo.rate,
+            acc_b: Math.round(3500 / cInfo.rate),
+            acc_s: Math.round(10000 / cInfo.rate),
+            acc_l: Math.round(28000 / cInfo.rate),
+            meal_b: Math.round(1600 / cInfo.rate),
+            meal_s: Math.round(4500 / cInfo.rate),
+            meal_l: Math.round(12000 / cInfo.rate),
+            transit: Math.round(650 / cInfo.rate),
+            taxi: Math.round(160 / cInfo.rate),
+            source: 'COUNTRY_HEURISTIC_MODEL',
             attractions: [
-              { name: `${formattedCity} Ancient Sacred Temple & Sanctum Darshan`, category: 'Spiritual Shrine', price: 50, hours: 2.5 },
-              { name: `${formattedCity} Historical Heritage Fort & Royal Citadel`, category: 'Heritage Fort', price: 25, hours: 2.5 },
-              { name: `${formattedCity} Scenic Hills & Waterfalls Viewpoint`, category: 'Scenic Nature', price: 20, hours: 2.0 },
-              { name: `${formattedCity} Traditional Heritage Bazaar & Cultural Food Trail`, category: 'Cultural Market', price: 0, hours: 2.0 }
+              { name: `${formattedCity} National Heritage & Cultural Landmark`, category: 'Historic Landmark', price: Math.round(1200 / cInfo.rate), hours: 2.5 },
+              { name: `${formattedCity} Royal Palace & Historical Museum`, category: 'Palace Museum', price: Math.round(1600 / cInfo.rate), hours: 3.0 },
+              { name: `${formattedCity} Scenic Waterfront / Mountain Viewpoint`, category: 'Scenic Nature', price: Math.round(800 / cInfo.rate), hours: 2.0 },
+              { name: `${formattedCity} Traditional Old Town & Cultural Market Walk`, category: 'Cultural Quarter', price: 0, hours: 2.5 }
             ]
           };
         } else {
-          // General International Destination Model
-          data = {
-            country: 'International', currency: 'USD', symbol: '$', rate: 84.0,
-            acc_b: 40, acc_s: 130, acc_l: 350, meal_b: 20, meal_s: 52, meal_l: 140, transit: 9.0, taxi: 2.2,
-            attractions: [
-              { name: `${formattedCity} Historic Old Town & City Landmark`, category: 'City Landmark', price: 0, hours: 2.0 },
-              { name: `${formattedCity} National Museum & Art Gallery Pass`, category: 'Museum', price: 22, hours: 3.0 },
-              { name: `${formattedCity} Panoramic Observation Deck & Skyline View`, category: 'Observation Deck', price: 28, hours: 2.0 },
-              { name: `${formattedCity} Waterfront Harbour & Botanical Promenade`, category: 'Nature Promenade', price: 0, hours: 2.0 }
-            ]
-          };
+          // Check if query is Indian or default
+          const indianPatterns = [
+            'india', 'andhra', 'telangana', 'karnataka', 'tamil', 'kerala', 'maharashtra', 'gujarat',
+            'rajasthan', 'punjab', 'bengal', 'odisha', 'bihar', 'up', 'uttar', 'madhya', 'himachal',
+            'kashmir', 'patna', 'indore', 'bhubaneswar', 'madurai', 'trivandrum', 'thiruvananthapuram',
+            'calicut', 'kozhikode', 'mangalore', 'mangaluru', 'mysore', 'pune', 'nagpur', 'surat',
+            'vadodara', 'ahmedabad', 'ranchi', 'guwahati', 'shillong', 'gangtok', 'darjeeling',
+            'jodhpur', 'jaisalmer', 'bikaner', 'pushkar', 'ajmer', 'mathura', 'vrindavan', 'haridwar',
+            'dehradun', 'nainital', 'mussoorie', 'kullu', 'dharamshala', 'dalhousie', 'hampi',
+            'puri', 'ongole', 'guntur', 'chittoor', 'kadapa', 'kurnool', 'tirupati', 'tirumala'
+          ];
+          const isDomestic = indianPatterns.some(p => queryClean.includes(p)) ||
+            queryClean.endsWith('am') || queryClean.endsWith('puram') || queryClean.endsWith('palli') || queryClean.endsWith('pet') || queryClean.endsWith('konda');
+
+          if (isDomestic) {
+            data = {
+              country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
+              acc_b: 750, acc_s: 2200, acc_l: 6800, meal_b: 380, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
+              source: 'DOMESTIC_HEURISTIC_MODEL',
+              attractions: [
+                { name: `${formattedCity} Ancient Sacred Temple & Sanctum Darshan`, category: 'Spiritual Shrine', price: 50, hours: 2.5 },
+                { name: `${formattedCity} Historical Heritage Fort & Royal Citadel`, category: 'Heritage Fort', price: 25, hours: 2.5 },
+                { name: `${formattedCity} Scenic Hills & Waterfalls Viewpoint`, category: 'Scenic Nature', price: 20, hours: 2.0 },
+                { name: `${formattedCity} Traditional Heritage Bazaar & Cultural Food Trail`, category: 'Cultural Market', price: 0, hours: 2.0 }
+              ]
+            };
+          } else {
+            // General International Destination Model
+            data = {
+              country: 'International', currency: 'USD', symbol: '$', rate: 84.0,
+              acc_b: 40, acc_s: 130, acc_l: 350, meal_b: 20, meal_s: 52, meal_l: 140, transit: 9.0, taxi: 2.2,
+              source: 'INTERNATIONAL_HEURISTIC_MODEL',
+              attractions: [
+                { name: `${formattedCity} Historic Old Town & City Landmark`, category: 'City Landmark', price: 0, hours: 2.0 },
+                { name: `${formattedCity} National Museum & Art Gallery Pass`, category: 'Museum', price: 22, hours: 3.0 },
+                { name: `${formattedCity} Panoramic Observation Deck & Skyline View`, category: 'Observation Deck', price: 28, hours: 2.0 },
+                { name: `${formattedCity} Waterfront Harbour & Botanical Promenade`, category: 'Nature Promenade', price: 0, hours: 2.0 }
+              ]
+            };
+          }
         }
       }
     }
@@ -1123,7 +1232,7 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
         transit_pass_day: data.transit,
         taxi_per_km: data.taxi,
         exchange_rate_to_inr: data.rate,
-        source: 'LIVE_WEB_SEARCH_AI',
+        source: data.source || 'LIVE_WEB_SEARCH_AI',
         confidence_score: 0.95,
         last_synced_at: new Date()
       },
@@ -1138,7 +1247,7 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
         transit_pass_day: data.transit,
         taxi_per_km: data.taxi,
         exchange_rate_to_inr: data.rate,
-        source: 'LIVE_WEB_SEARCH_AI',
+        source: data.source || 'LIVE_WEB_SEARCH_AI',
         confidence_score: 0.95
       }
     });
@@ -2065,6 +2174,51 @@ app.get('/api/admin/system-health', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ status: 'ERROR', error: err.message });
+  }
+});
+
+// API Status & Gemini Key Configuration Endpoints
+app.get('/api/system/api-status', (req, res) => {
+  const key = process.env.GEMINI_API_KEY;
+  const isConfigured = Boolean(key && key.trim().length > 10 && key !== 'YOUR_GEMINI_API_KEY');
+  res.json({
+    gemini_configured: isConfigured,
+    gemini_masked_key: isConfigured ? `${key.trim().slice(0, 6)}...${key.trim().slice(-4)}` : null,
+    model: 'Google Gemini 1.5 Flash / 2.0 Flash',
+    fx_rates_source: 'live (open.er-api.com/v6/latest/INR)',
+    curated_destinations_count: 98,
+    database: 'PostgreSQL 14+ (skillgap_radar_24BAI0226)'
+  });
+});
+
+app.post('/api/system/save-gemini-key', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 8) {
+      return res.status(400).json({ error: 'Please provide a valid Gemini API key (starts with AIzaSy...)' });
+    }
+    const cleanKey = apiKey.trim();
+    process.env.GEMINI_API_KEY = cleanKey;
+
+    // Read and update backend/.env
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      if (envContent.includes('GEMINI_API_KEY=')) {
+        envContent = envContent.replace(/GEMINI_API_KEY="?[^"\r\n]*"?/g, `GEMINI_API_KEY="${cleanKey}"`);
+      } else {
+        envContent += `\nGEMINI_API_KEY="${cleanKey}"\n`;
+      }
+      fs.writeFileSync(envPath, envContent, 'utf8');
+    }
+
+    res.json({
+      success: true,
+      message: 'Google Gemini API key securely updated and connected!',
+      masked_key: `${cleanKey.slice(0, 6)}...${cleanKey.slice(-4)}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update Gemini API key: ' + err.message });
   }
 });
 
