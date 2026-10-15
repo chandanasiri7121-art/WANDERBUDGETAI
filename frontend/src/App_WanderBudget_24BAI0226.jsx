@@ -124,6 +124,9 @@ export default function App_WanderBudget_24BAI0226() {
           if (destData.length > 0) {
             setSelectedDestination(destData[0]);
             setBuilderDestinationId(destData[0].destination_id);
+            if (destData[0].attractions && destData[0].attractions.length > 0) {
+              setSelectedAttractionIds(destData[0].attractions.map(a => a.attraction_id));
+            }
           }
         }
 
@@ -174,6 +177,8 @@ export default function App_WanderBudget_24BAI0226() {
         setSelectedDestination(match);
         if (match.attractions && match.attractions.length > 0) {
           setSelectedAttractionIds(match.attractions.map(a => a.attraction_id));
+        } else {
+          setSelectedAttractionIds([]);
         }
       }
     }
@@ -200,7 +205,14 @@ export default function App_WanderBudget_24BAI0226() {
         const dest = data.destination;
         setSelectedDestination(dest);
 
-        // Update destinations list if new
+        // Immediately update attractions of the newly selected destination
+        if (dest.attractions && dest.attractions.length > 0) {
+          setSelectedAttractionIds(dest.attractions.map(a => a.attraction_id));
+        } else {
+          setSelectedAttractionIds([]);
+        }
+
+        // Update destinations list if new or updated
         setDestinations(prev => {
           const exists = prev.some(d => d.destination_id === dest.destination_id);
           if (exists) {
@@ -719,18 +731,36 @@ export default function App_WanderBudget_24BAI0226() {
 
                 {/* Quick Destination Pills */}
                 <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <span className="text-xs text-slate-400">Popular:</span>
-                  {['Tirupati', 'Tokyo', 'Paris', 'Bali', 'Goa', 'Zurich', 'Seoul', 'Manali'].map(city => (
+                  <span className="text-xs text-slate-400">Popular Destinations:</span>
+                  {[
+                    { id: 'Tirupati', label: '🛕 Tirupati' },
+                    { id: 'Hyderabad', label: '🕌 Hyderabad' },
+                    { id: 'Goa', label: '🏖️ Goa' },
+                    { id: 'Manali', label: '🏔️ Manali' },
+                    { id: 'Bangalore', label: '🌳 Bangalore' },
+                    { id: 'Chennai', label: '🌊 Chennai' },
+                    { id: 'Delhi', label: '🏛️ Delhi' },
+                    { id: 'Agra', label: '🕌 Agra' },
+                    { id: 'Varanasi', label: '🪔 Varanasi' },
+                    { id: 'Tokyo', label: '🗼 Tokyo' },
+                    { id: 'Paris', label: '🥐 Paris' },
+                    { id: 'Bali', label: '🌴 Bali' },
+                    { id: 'Zurich', label: '❄️ Zurich' },
+                    { id: 'London', label: '🎡 London' },
+                    { id: 'Dubai', label: '🏙️ Dubai' },
+                    { id: 'Seoul', label: '🌸 Seoul' },
+                    { id: 'Bangkok', label: '🏮 Bangkok' }
+                  ].map(item => (
                     <button
-                      key={city}
-                      onClick={() => handleAnalyzeCity(city)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                        city === 'Tirupati'
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
-                          : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300'
+                      key={item.id}
+                      onClick={() => handleAnalyzeCity(item.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        selectedDestination?.city_name?.toLowerCase() === item.id.toLowerCase()
+                          ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
+                          : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300 hover:text-white'
                       }`}
                     >
-                      {city === 'Tirupati' ? '🛕 Tirupati' : city}
+                      {item.label}
                     </button>
                   ))}
                 </div>
@@ -1062,6 +1092,59 @@ export default function App_WanderBudget_24BAI0226() {
                 </div>
               </div>
             )}
+
+            {/* Destinations Catalog Grid */}
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-emerald-400" />
+                    All Indexed Travel Destinations ({destinations.length} Cities in Database)
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Click any destination to load all its authentic attractions, cost indicators, and customize your trip</p>
+                </div>
+                <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                  {destinations.length} Active Cities
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-1">
+                {destinations.map(d => {
+                  const isCurrent = selectedDestination?.destination_id === d.destination_id;
+                  return (
+                    <button
+                      key={d.destination_id}
+                      onClick={() => {
+                        setSelectedDestination(d);
+                        setBuilderDestinationId(d.destination_id);
+                        if (d.attractions && d.attractions.length > 0) {
+                          setSelectedAttractionIds(d.attractions.map(a => a.attraction_id));
+                        } else {
+                          setSelectedAttractionIds([]);
+                        }
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        isCurrent
+                          ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg ring-1 ring-emerald-500/40'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <div className="font-bold text-xs truncate text-slate-100 flex items-center justify-between">
+                        <span>{d.city_name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{d.currency_symbol}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{d.country_name}</div>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[10px]">
+                        <span className="text-emerald-400 font-mono">
+                          {d.attractions ? `${d.attractions.length} spots` : (d._count?.attractions ? `${d._count.attractions} spots` : 'spots')}
+                        </span>
+                        <span className="text-[9px] text-slate-500 uppercase font-mono">SELECT</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
