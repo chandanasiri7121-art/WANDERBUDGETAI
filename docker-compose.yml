@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  skillgap_postgres_24BAI0226:
+    image: postgres:16-alpine
+    container_name: skillgap_pg_24BAI0226
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: skillgap_radar_24BAI0226
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_24BAI0226:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d skillgap_radar_24BAI0226"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_24BAI0226:
+    name: pgdata_skillgap_24BAI0226
