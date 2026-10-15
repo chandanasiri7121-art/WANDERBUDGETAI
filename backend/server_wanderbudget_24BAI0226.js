@@ -614,14 +614,308 @@ const GLOBAL_COST_BENCHMARKS = {
       { name: 'Jantar Mantar UNESCO Astronomical Observatory', category: 'Astronomical Heritage', price: 200, hours: 2.0 },
       { name: 'Nahargarh Fort Sunset Viewpoint', category: 'Panoramic Viewpoint', price: 50, hours: 2.0 }
     ]
+  },
+  'rome': { country: 'Italy', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 40, acc_s: 120, acc_l: 320, meal_b: 20, meal_s: 55, meal_l: 150, transit: 7, taxi: 1.8,
+    attractions: [
+      { name: 'Colosseum & Roman Forum Fast Track', category: 'Ancient Wonder', price: 24, hours: 3.5 },
+      { name: 'Vatican Museums & Sistine Chapel', category: 'Art & Religion', price: 29, hours: 4.0 },
+      { name: 'Trevi Fountain & Pantheon Historic Walk', category: 'Landmark', price: 5, hours: 2.0 },
+      { name: 'Borghese Gallery & Villa Gardens', category: 'Art Gallery', price: 22, hours: 2.5 }
+    ]
+  },
+  'barcelona': { country: 'Spain', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 35, acc_s: 110, acc_l: 290, meal_b: 18, meal_s: 48, meal_l: 135, transit: 6.5, taxi: 1.6,
+    attractions: [
+      { name: 'Sagrada Família Basilica Tower Access', category: 'Gaudí Architecture', price: 36, hours: 2.5 },
+      { name: 'Park Güell Monumental Zone Guided Tour', category: 'Iconic Park', price: 13, hours: 2.0 },
+      { name: 'Casa Batlló Immersive 10D Experience', category: 'Modernist Mansion', price: 29, hours: 2.0 },
+      { name: 'Gothic Quarter (Barri Gòtic) Walking Trail', category: 'Historic Quarter', price: 0, hours: 2.0 }
+    ]
+  },
+  'amsterdam': { country: 'Netherlands', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 42, acc_s: 130, acc_l: 340, meal_b: 22, meal_s: 58, meal_l: 155, transit: 8.5, taxi: 2.1,
+    attractions: [
+      { name: 'Rijksmuseum Dutch Masters Guided Entry', category: 'Art & History Museum', price: 25, hours: 3.5 },
+      { name: 'Van Gogh Museum Masterpieces Tour', category: 'Art Gallery', price: 22, hours: 2.5 },
+      { name: 'Amsterdam UNESCO Canal Ring Boat Cruise', category: 'Scenic Canal Cruise', price: 18, hours: 1.5 },
+      { name: 'Anne Frank House Historic Exhibition', category: 'Historic Memorial', price: 16, hours: 2.0 }
+    ]
+  },
+  'venice': { country: 'Italy', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 45, acc_s: 140, acc_l: 380, meal_b: 24, meal_s: 62, meal_l: 165, transit: 9.5, taxi: 3.0,
+    attractions: [
+      { name: 'St. Mark\'s Basilica & Golden Pala d\'Oro', category: 'Byzantine Cathedral', price: 15, hours: 2.0 },
+      { name: 'Doge\'s Palace & Bridge of Sighs Access', category: 'Gothic Palace', price: 30, hours: 2.5 },
+      { name: 'Grand Canal Traditional Gondola Ride', category: 'Gondola Cruise', price: 35, hours: 1.0 },
+      { name: 'Rialto Bridge & Fish Market Stroll', category: 'Historic Bridge', price: 0, hours: 1.5 }
+    ]
+  },
+  'prague': { country: 'Czech Republic', currency: 'CZK', symbol: 'Kč', rate: 3.65, acc_b: 650, acc_s: 1900, acc_l: 5200, meal_b: 280, meal_s: 750, meal_l: 2100, transit: 120, taxi: 30,
+    attractions: [
+      { name: 'Prague Castle & St. Vitus Cathedral Complex', category: 'Medieval Castle', price: 250, hours: 3.5 },
+      { name: 'Charles Bridge Historic Statues Walk', category: 'Historic Bridge', price: 0, hours: 1.5 },
+      { name: 'Old Town Astronomical Clock & Hall Tower', category: 'Astronomical Clock', price: 250, hours: 2.0 },
+      { name: 'Vltava River Panoramic Sightseeing Cruise', category: 'River Cruise', price: 350, hours: 1.5 }
+    ]
+  },
+  'vienna': { country: 'Austria', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 38, acc_s: 115, acc_l: 310, meal_b: 20, meal_s: 52, meal_l: 140, transit: 8.0, taxi: 1.9,
+    attractions: [
+      { name: 'Schönbrunn Palace Grand Imperial Tour', category: 'Imperial Palace', price: 26, hours: 3.0 },
+      { name: 'St. Stephen\'s Cathedral & South Tower Climb', category: 'Gothic Cathedral', price: 12, hours: 2.0 },
+      { name: 'Belvedere Palace (Klimt\'s The Kiss)', category: 'Baroque Palace & Art', price: 18, hours: 2.5 },
+      { name: 'Hofburg Imperial Apartments & Sisi Museum', category: 'Habsburg Palace', price: 17, hours: 2.0 }
+    ]
+  },
+  'athens': { country: 'Greece', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 30, acc_s: 90, acc_l: 250, meal_b: 16, meal_s: 42, meal_l: 115, transit: 6.0, taxi: 1.4,
+    attractions: [
+      { name: 'Acropolis & Parthenon Archaeological Site', category: 'Ancient Wonder', price: 20, hours: 3.0 },
+      { name: 'Acropolis Museum Masterpieces Gallery', category: 'Archaeological Museum', price: 15, hours: 2.5 },
+      { name: 'Plaka Historic Neighborhood & Anafiotika Walk', category: 'Historic Quarter', price: 0, hours: 2.0 },
+      { name: 'Temple of Olympian Zeus & Hadrian\'s Arch', category: 'Ancient Ruins', price: 8, hours: 1.5 }
+    ]
+  },
+  'berlin': { country: 'Germany', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 35, acc_s: 105, acc_l: 280, meal_b: 18, meal_s: 48, meal_l: 130, transit: 7.5, taxi: 2.0,
+    attractions: [
+      { name: 'Brandenburg Gate & Pariser Platz Stroll', category: 'National Monument', price: 0, hours: 1.5 },
+      { name: 'Reichstag Building Glass Dome & Parliament Access', category: 'Historic Parliament', price: 0, hours: 2.0 },
+      { name: 'Museum Island (Pergamon & Neues Museum Pass)', category: 'UNESCO Museum Complex', price: 24, hours: 4.0 },
+      { name: 'East Side Gallery & Berlin Wall Memorial', category: 'Historical Memorial', price: 0, hours: 2.0 }
+    ]
+  },
+  'florence': { country: 'Italy', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 38, acc_s: 115, acc_l: 310, meal_b: 19, meal_s: 50, meal_l: 140, transit: 6.5, taxi: 1.7,
+    attractions: [
+      { name: 'Uffizi Gallery Renaissance Masterpieces Tour', category: 'World Art Gallery', price: 25, hours: 3.5 },
+      { name: 'Florence Duomo & Brunelleschi\'s Dome Climb', category: 'Renaissance Cathedral', price: 20, hours: 2.5 },
+      { name: 'Galleria dell\'Accademia (Michelangelo\'s David)', category: 'Sculpture Museum', price: 16, hours: 2.0 },
+      { name: 'Ponte Vecchio Medieval Bridge & Piazzale Sunset', category: 'Historic Bridge', price: 0, hours: 2.0 }
+    ]
+  },
+  'budapest': { country: 'Hungary', currency: 'HUF', symbol: 'Ft', rate: 0.23, acc_b: 9500, acc_s: 28000, acc_l: 75000, meal_b: 4500, meal_s: 12000, meal_l: 32000, transit: 1800, taxi: 450,
+    attractions: [
+      { name: 'Hungarian Parliament Building Guided Interior Tour', category: 'Gothic Revival Parliament', price: 6000, hours: 2.0 },
+      { name: 'Széchenyi Thermal Bath Full Day Spa Ticket', category: 'Historic Thermal Bath', price: 10500, hours: 4.0 },
+      { name: 'Buda Castle & Fisherman\'s Bastion Panorama', category: 'Medieval Fortress', price: 1200, hours: 3.0 },
+      { name: 'Danube Evening Sightseeing Cruise with Welcome Drink', category: 'River Cruise', price: 5500, hours: 1.5 }
+    ]
+  },
+  'lisbon': { country: 'Portugal', currency: 'EUR', symbol: '€', rate: 90.5, acc_b: 30, acc_s: 90, acc_l: 240, meal_b: 15, meal_s: 40, meal_l: 110, transit: 6.0, taxi: 1.4,
+    attractions: [
+      { name: 'Belém Tower UNESCO Maritime Fortress', category: 'Maritime Monument', price: 8, hours: 2.0 },
+      { name: 'Jerónimos Monastery Manueline Masterpiece', category: 'Historic Monastery', price: 12, hours: 2.5 },
+      { name: 'Historic Tram 28 Scenic Hills Route', category: 'Heritage Transit', price: 3, hours: 1.5 },
+      { name: 'Castelo de São Jorge Panoramic Viewpoint', category: 'Moorish Castle', price: 15, hours: 2.0 }
+    ]
+  },
+  'kyoto': { country: 'Japan', currency: 'JPY', symbol: '¥', rate: 0.56, acc_b: 3500, acc_s: 11000, acc_l: 32000, meal_b: 1500, meal_s: 4500, meal_l: 12000, transit: 700, taxi: 350,
+    attractions: [
+      { name: 'Fushimi Inari Taisha (10,000 Torii Gates Trail)', category: 'Shinto Shrine', price: 0, hours: 3.0 },
+      { name: 'Kinkaku-ji (Golden Pavilion) Zen Temple', category: 'Zen Temple', price: 500, hours: 2.0 },
+      { name: 'Arashiyama Bamboo Grove & Tenryu-ji Temple', category: 'Natural Wonder', price: 500, hours: 2.5 },
+      { name: 'Gion Historic Geisha District Walking Tour', category: 'Cultural Quarter', price: 0, hours: 2.0 }
+    ]
+  },
+  'hanoi': { country: 'Vietnam', currency: 'VND', symbol: '₫', rate: 0.0034, acc_b: 350000, acc_s: 1100000, acc_l: 3200000, meal_b: 150000, meal_s: 400000, meal_l: 1100000, transit: 80000, taxi: 15000,
+    attractions: [
+      { name: 'Halong Bay UNESCO World Heritage Day Cruise', category: 'Scenic Limestone Bay', price: 950000, hours: 8.0 },
+      { name: 'Hanoi Old Quarter Street Food & Cyclo Tour', category: 'Culinary Walk', price: 250000, hours: 3.0 },
+      { name: 'Temple of Literature (First University of Vietnam)', category: 'Confucian Temple', price: 30000, hours: 2.0 },
+      { name: 'Ho Chi Minh Mausoleum & One Pillar Pagoda', category: 'National Monument', price: 0, hours: 2.0 }
+    ]
+  },
+  'kuala lumpur': { country: 'Malaysia', currency: 'MYR', symbol: 'RM', rate: 19.5, acc_b: 65, acc_s: 200, acc_l: 600, meal_b: 25, meal_s: 70, meal_l: 200, transit: 15, taxi: 3.0,
+    attractions: [
+      { name: 'Petronas Twin Towers Skybridge & 86th Floor', category: 'Twin Skyscrapers', price: 80, hours: 2.0 },
+      { name: 'Batu Caves Murugan Statue & 272 Rainbow Steps', category: 'Hindu Cave Temple', price: 0, hours: 2.5 },
+      { name: 'KL Tower (Menara KL) Sky Deck & Box View', category: 'Observation Tower', price: 60, hours: 1.5 },
+      { name: 'Jalan Alor Famous Night Street Food Market', category: 'Food Market', price: 0, hours: 2.0 }
+    ]
+  },
+  'hong kong': { country: 'Hong Kong', currency: 'HKD', symbol: 'HK$', rate: 10.8, acc_b: 280, acc_s: 850, acc_l: 2500, meal_b: 90, meal_s: 260, meal_l: 750, transit: 30, taxi: 9.0,
+    attractions: [
+      { name: 'Victoria Peak Historic Tram & Sky Terrace 428', category: 'Skyline Tram', price: 99, hours: 2.5 },
+      { name: 'Tian Tan (Big Buddha) & Po Lin Monastery Cable Car', category: 'Giant Buddha & Cable Car', price: 235, hours: 4.0 },
+      { name: 'Star Ferry Victoria Harbour Sunset Crossing', category: 'Heritage Ferry', price: 5, hours: 1.0 },
+      { name: 'Hong Kong Disneyland Resort Day Pass', category: 'Theme Park', price: 639, hours: 6.0 }
+    ]
+  },
+  'taipei': { country: 'Taiwan', currency: 'TWD', symbol: 'NT$', rate: 2.65, acc_b: 850, acc_s: 2600, acc_l: 7500, meal_b: 250, meal_s: 700, meal_l: 2000, transit: 100, taxi: 25,
+    attractions: [
+      { name: 'Taipei 101 Observatory (89th Floor High-Speed Lift)', category: 'Skyscraper Observatory', price: 600, hours: 2.0 },
+      { name: 'National Palace Museum Imperial Treasures', category: 'Imperial Art Museum', price: 350, hours: 3.5 },
+      { name: 'Shilin Night Market Michelin Bib Gourmand Trail', category: 'Night Street Food', price: 0, hours: 2.5 },
+      { name: 'Jiufen Mountain Old Village & Tea House Excursion', category: 'Heritage Mountain Town', price: 200, hours: 4.0 }
+    ]
+  },
+  'san francisco': { country: 'United States', currency: 'USD', symbol: '$', rate: 84.0, acc_b: 55, acc_s: 180, acc_l: 450, meal_b: 25, meal_s: 68, meal_l: 185, transit: 12, taxi: 3.0,
+    attractions: [
+      { name: 'Golden Gate Bridge Walk & Vista Point Lookout', category: 'Iconic Bridge', price: 0, hours: 2.5 },
+      { name: 'Alcatraz Island Penitentiary Ferry & Audio Tour', category: 'Historic Penitentiary', price: 45, hours: 3.5 },
+      { name: 'Fisherman\'s Wharf & Pier 39 Sea Lions', category: 'Harbour Promenade', price: 0, hours: 2.0 },
+      { name: 'Historic Cable Car Ride (Powell-Hyde Line)', category: 'Heritage Cable Car', price: 8, hours: 1.0 }
+    ]
+  },
+  'los angeles': { country: 'United States', currency: 'USD', symbol: '$', rate: 84.0, acc_b: 55, acc_s: 175, acc_l: 440, meal_b: 24, meal_s: 65, meal_l: 180, transit: 11, taxi: 2.8,
+    attractions: [
+      { name: 'Universal Studios Hollywood Theme Park & Studio Tour', category: 'Movie Studio Theme Park', price: 109, hours: 7.0 },
+      { name: 'Santa Monica Pier & Venice Beach Boardwalk', category: 'Oceanfront Pier', price: 0, hours: 3.0 },
+      { name: 'Griffith Observatory & Hollywood Sign Viewpoint', category: 'Observatory & Landmark', price: 0, hours: 2.5 },
+      { name: 'Hollywood Walk of Fame & TCL Chinese Theatre', category: 'Celebrity Walkway', price: 0, hours: 2.0 }
+    ]
+  },
+  'vancouver': { country: 'Canada', currency: 'CAD', symbol: 'C$', rate: 61.5, acc_b: 48, acc_s: 155, acc_l: 395, meal_b: 22, meal_s: 55, meal_l: 150, transit: 10, taxi: 2.3,
+    attractions: [
+      { name: 'Stanley Park Seawall & Totem Poles Bike Tour', category: 'Urban Forest Park', price: 0, hours: 3.0 },
+      { name: 'Capilano Suspension Bridge Park & Treetops', category: 'Suspension Bridge', price: 65, hours: 2.5 },
+      { name: 'Granville Island Public Market & Artisan Walk', category: 'Public Market', price: 0, hours: 2.0 },
+      { name: 'Grouse Mountain Skyride & Peak Panorama', category: 'Mountain Resort', price: 75, hours: 3.5 }
+    ]
+  },
+  'rio de janeiro': { country: 'Brazil', currency: 'BRL', symbol: 'R$', rate: 15.2, acc_b: 95, acc_s: 300, acc_l: 850, meal_b: 45, meal_s: 120, meal_l: 340, transit: 18, taxi: 4.5,
+    attractions: [
+      { name: 'Christ the Redeemer & Corcovado Cog Train', category: 'Wonder of the World', price: 110, hours: 3.0 },
+      { name: 'Sugarloaf Mountain (Pão de Açúcar) Cable Car', category: 'Cable Car Viewpoint', price: 150, hours: 2.5 },
+      { name: 'Copacabana & Ipanema Famous Beach Walk', category: 'World Famous Beach', price: 0, hours: 2.5 },
+      { name: 'Selarón Steps (Escadaria Selarón) Lapa Tour', category: 'Ceramic Mosaic Art', price: 0, hours: 1.5 }
+    ]
+  },
+  'cancun': { country: 'Mexico', currency: 'MXN', symbol: '$', rate: 4.3, acc_b: 400, acc_s: 1400, acc_l: 4500, meal_b: 200, meal_s: 550, meal_l: 1600, transit: 60, taxi: 18,
+    attractions: [
+      { name: 'Chichen Itza UNESCO Mayan Pyramid Guided Tour', category: 'Wonder of the World', price: 614, hours: 5.0 },
+      { name: 'Xcaret Eco-Archaeological Theme Park Day Pass', category: 'Eco Theme Park', price: 2100, hours: 7.0 },
+      { name: 'Isla Mujeres Catamaran Cruise & Snorkeling', category: 'Catamaran Reef Cruise', price: 1200, hours: 5.0 },
+      { name: 'Playa Delfines (El Mirador) Lookout Beach', category: 'Public Beach', price: 0, hours: 2.0 }
+    ]
+  },
+  'cairo': { country: 'Egypt', currency: 'EGP', symbol: 'E£', rate: 1.75, acc_b: 650, acc_s: 2000, acc_l: 6500, meal_b: 250, meal_s: 700, meal_l: 2000, transit: 70, taxi: 15,
+    attractions: [
+      { name: 'Great Pyramids of Giza & Great Sphinx Entry', category: 'Wonder of Ancient World', price: 540, hours: 4.0 },
+      { name: 'The Grand Egyptian Museum (GEM) Antiquities', category: 'World Museum of Antiquities', price: 450, hours: 3.5 },
+      { name: 'Khan el-Khalili Historic Medieval Bazaar', category: '14th-Century Souq', price: 0, hours: 2.5 },
+      { name: 'Felucca Traditional Sailboat Cruise on the Nile', category: 'Nile Sailing', price: 300, hours: 1.5 }
+    ]
+  },
+  'istanbul': { country: 'Turkey', currency: 'TRY', symbol: '₺', rate: 2.45, acc_b: 600, acc_s: 1800, acc_l: 5500, meal_b: 220, meal_s: 600, meal_l: 1800, transit: 65, taxi: 18,
+    attractions: [
+      { name: 'Hagia Sophia Grand Mosque Historical Tour', category: 'Byzantine Architectural Wonder', price: 850, hours: 2.5 },
+      { name: 'Topkapi Palace & Imperial Harem Access', category: 'Ottoman Imperial Palace', price: 1500, hours: 3.5 },
+      { name: 'Bosphorus Sunset Sightseeing Cruise', category: 'Intercontinental Cruise', price: 450, hours: 2.0 },
+      { name: 'Grand Bazaar & Spice Market Heritage Walk', category: 'Historic Covered Market', price: 0, hours: 2.5 }
+    ]
+  },
+  'cape town': { country: 'South Africa', currency: 'ZAR', symbol: 'R', rate: 4.8, acc_b: 350, acc_s: 1100, acc_l: 3200, meal_b: 160, meal_s: 420, meal_l: 1200, transit: 50, taxi: 12,
+    attractions: [
+      { name: 'Table Mountain Aerial Cableway Return Ticket', category: 'Mountain Cableway', price: 420, hours: 3.0 },
+      { name: 'Boulders Beach African Penguin Colony', category: 'Wildlife Penguin Sanctuary', price: 190, hours: 2.0 },
+      { name: 'Cape of Good Hope & Cape Point Nature Reserve', category: 'Historic Oceanic Cape', price: 376, hours: 4.0 },
+      { name: 'V&A Waterfront Promenade & Robben Island Ferry', category: 'Harbour Promenade', price: 0, hours: 2.5 }
+    ]
+  },
+  'marrakech': { country: 'Morocco', currency: 'MAD', symbol: 'DH', rate: 8.5, acc_b: 220, acc_s: 700, acc_l: 2100, meal_b: 95, meal_s: 260, meal_l: 750, transit: 25, taxi: 6.0,
+    attractions: [
+      { name: 'Jardin Majorelle & Yves Saint Laurent Museum', category: 'Botanical Sanctuary', price: 150, hours: 2.0 },
+      { name: 'Bahia Palace 19th-Century Islamic Architecture', category: 'Islamic Royal Palace', price: 70, hours: 2.0 },
+      { name: 'Jemaa el-Fnaa Medina Square Street Performance', category: 'UNESCO Cultural Square', price: 0, hours: 2.5 },
+      { name: 'Koutoubia Mosque Gardens & Historic Minaret', category: 'Historic Mosque Gardens', price: 0, hours: 1.5 }
+    ]
+  },
+  'melbourne': { country: 'Australia', currency: 'AUD', symbol: 'A$', rate: 55.5, acc_b: 48, acc_s: 150, acc_l: 390, meal_b: 22, meal_s: 55, meal_l: 150, transit: 10, taxi: 2.4,
+    attractions: [
+      { name: 'Great Ocean Road & 12 Apostles Day Tour', category: 'Scenic Coastal Wonder', price: 145, hours: 8.0 },
+      { name: 'Melbourne Skydeck (88th Floor Southern View)', category: 'Skydeck Observatory', price: 38, hours: 2.0 },
+      { name: 'Royal Botanic Gardens Victoria Guided Walk', category: 'Botanical Gardens', price: 0, hours: 2.5 },
+      { name: 'Hosier Lane Street Art & Laneway Coffee Trail', category: 'Street Art & Laneways', price: 0, hours: 2.0 }
+    ]
+  },
+  'queenstown': { country: 'New Zealand', currency: 'NZD', symbol: 'NZ$', rate: 51.5, acc_b: 52, acc_s: 165, acc_l: 430, meal_b: 24, meal_s: 60, meal_l: 165, transit: 10, taxi: 2.8,
+    attractions: [
+      { name: 'Milford Sound UNESCO Glacier Fjord Cruise', category: 'Glacier Fjord Cruise', price: 165, hours: 8.0 },
+      { name: 'Skyline Queenstown Gondola & Gravity Luge', category: 'Mountain Gondola & Luge', price: 73, hours: 3.0 },
+      { name: 'TSS Earnslaw Vintage Steamship Cruise & Farm', category: 'Vintage Steamship Cruise', price: 99, hours: 3.5 },
+      { name: 'Queenstown Gardens & Lake Wakatipu Peninsula', category: 'Alpine Lake Peninsula', price: 0, hours: 2.0 }
+    ]
   }
+};
+
+// Global Country & Currency Registry for Universal AI Search
+const WORLD_COUNTRY_LOOKUP = {
+  // Europe
+  'france': { country: 'France', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'italy': { country: 'Italy', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'spain': { country: 'Spain', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'germany': { country: 'Germany', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'united kingdom': { country: 'United Kingdom', currency: 'GBP', symbol: '£', rate: 108.5 },
+  'uk': { country: 'United Kingdom', currency: 'GBP', symbol: '£', rate: 108.5 },
+  'england': { country: 'United Kingdom', currency: 'GBP', symbol: '£', rate: 108.5 },
+  'scotland': { country: 'Scotland', currency: 'GBP', symbol: '£', rate: 108.5 },
+  'switzerland': { country: 'Switzerland', currency: 'CHF', symbol: 'CHF', rate: 94.0 },
+  'netherlands': { country: 'Netherlands', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'austria': { country: 'Austria', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'greece': { country: 'Greece', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'portugal': { country: 'Portugal', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'ireland': { country: 'Ireland', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'belgium': { country: 'Belgium', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'norway': { country: 'Norway', currency: 'NOK', symbol: 'kr', rate: 7.8 },
+  'sweden': { country: 'Sweden', currency: 'SEK', symbol: 'kr', rate: 7.9 },
+  'denmark': { country: 'Denmark', currency: 'DKK', symbol: 'kr', rate: 12.1 },
+  'finland': { country: 'Finland', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'poland': { country: 'Poland', currency: 'PLN', symbol: 'zł', rate: 21.0 },
+  'czech': { country: 'Czech Republic', currency: 'CZK', symbol: 'Kč', rate: 3.65 },
+  'croatia': { country: 'Croatia', currency: 'EUR', symbol: '€', rate: 90.5 },
+  'hungary': { country: 'Hungary', currency: 'HUF', symbol: 'Ft', rate: 0.23 },
+  'turkey': { country: 'Turkey', currency: 'TRY', symbol: '₺', rate: 2.45 },
+  'iceland': { country: 'Iceland', currency: 'ISK', symbol: 'kr', rate: 0.61 },
+
+  // Americas
+  'usa': { country: 'United States', currency: 'USD', symbol: '$', rate: 84.0 },
+  'united states': { country: 'United States', currency: 'USD', symbol: '$', rate: 84.0 },
+  'america': { country: 'United States', currency: 'USD', symbol: '$', rate: 84.0 },
+  'canada': { country: 'Canada', currency: 'CAD', symbol: 'C$', rate: 61.5 },
+  'mexico': { country: 'Mexico', currency: 'MXN', symbol: '$', rate: 4.3 },
+  'brazil': { country: 'Brazil', currency: 'BRL', symbol: 'R$', rate: 15.2 },
+  'argentina': { country: 'Argentina', currency: 'ARS', symbol: '$', rate: 0.086 },
+  'peru': { country: 'Peru', currency: 'PEN', symbol: 'S/.', rate: 22.5 },
+  'chile': { country: 'Chile', currency: 'CLP', symbol: '$', rate: 0.088 },
+  'colombia': { country: 'Colombia', currency: 'COP', symbol: '$', rate: 0.02 },
+
+  // Asia
+  'japan': { country: 'Japan', currency: 'JPY', symbol: '¥', rate: 0.56 },
+  'korea': { country: 'South Korea', currency: 'KRW', symbol: '₩', rate: 0.062 },
+  'south korea': { country: 'South Korea', currency: 'KRW', symbol: '₩', rate: 0.062 },
+  'china': { country: 'China', currency: 'CNY', symbol: '¥', rate: 11.6 },
+  'thailand': { country: 'Thailand', currency: 'THB', symbol: '฿', rate: 2.3 },
+  'vietnam': { country: 'Vietnam', currency: 'VND', symbol: '₫', rate: 0.0034 },
+  'indonesia': { country: 'Indonesia', currency: 'IDR', symbol: 'Rp', rate: 0.0054 },
+  'malaysia': { country: 'Malaysia', currency: 'MYR', symbol: 'RM', rate: 19.5 },
+  'singapore': { country: 'Singapore', currency: 'SGD', symbol: 'S$', rate: 62.5 },
+  'philippines': { country: 'Philippines', currency: 'PHP', symbol: '₱', rate: 1.45 },
+  'taiwan': { country: 'Taiwan', currency: 'TWD', symbol: 'NT$', rate: 2.65 },
+  'hong kong': { country: 'Hong Kong', currency: 'HKD', symbol: 'HK$', rate: 10.8 },
+  'nepal': { country: 'Nepal', currency: 'NPR', symbol: 'रु', rate: 0.625 },
+  'sri lanka': { country: 'Sri Lanka', currency: 'LKR', symbol: 'Rs', rate: 0.28 },
+  'maldives': { country: 'Maldives', currency: 'MVR', symbol: 'Rf', rate: 5.45 },
+
+  // Middle East & Africa
+  'uae': { country: 'United Arab Emirates', currency: 'AED', symbol: 'AED', rate: 22.8 },
+  'dubai': { country: 'United Arab Emirates', currency: 'AED', symbol: 'AED', rate: 22.8 },
+  'abu dhabi': { country: 'United Arab Emirates', currency: 'AED', symbol: 'AED', rate: 22.8 },
+  'saudi': { country: 'Saudi Arabia', currency: 'SAR', symbol: 'SR', rate: 22.4 },
+  'qatar': { country: 'Qatar', currency: 'QAR', symbol: 'QR', rate: 23.1 },
+  'egypt': { country: 'Egypt', currency: 'EGP', symbol: 'E£', rate: 1.75 },
+  'south africa': { country: 'South Africa', currency: 'ZAR', symbol: 'R', rate: 4.8 },
+  'morocco': { country: 'Morocco', currency: 'MAD', symbol: 'DH', rate: 8.5 },
+  'kenya': { country: 'Kenya', currency: 'KES', symbol: 'KSh', rate: 0.65 },
+  'jordan': { country: 'Jordan', currency: 'JOD', symbol: 'JD', rate: 118.5 },
+
+  // Oceania
+  'australia': { country: 'Australia', currency: 'AUD', symbol: 'A$', rate: 55.5 },
+  'new zealand': { country: 'New Zealand', currency: 'NZD', symbol: 'NZ$', rate: 51.5 },
+  'fiji': { country: 'Fiji', currency: 'FJD', symbol: 'FJ$', rate: 37.0 }
 };
 
 // Endpoint: AI Cost of Living Search & Analyzer
 app.post('/api/ai/analyze-destination', async (req, res) => {
   try {
-    const { destination_query, refresh } = req.body;
-    if (!destination_query || destination_query.trim().length < 2) {
+    const rawQuery = req.body.destination_query || req.body.city || req.body.query || '';
+    const destination_query = typeof rawQuery === 'string' ? rawQuery.trim() : String(rawQuery).trim();
+    const { refresh } = req.body;
+    if (!destination_query || destination_query.length < 2) {
       return res.status(400).json({ error: 'Please enter a valid destination city or region name' });
     }
 
@@ -652,7 +946,9 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       'banaras': 'varanasi',
       'kashi': 'varanasi',
       'nyc': 'new york',
-      'syd': 'sydney'
+      'syd': 'sydney',
+      'sf': 'san francisco',
+      'la': 'los angeles'
     };
 
     if (SPELLING_MAP[queryClean]) {
@@ -664,7 +960,8 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       where: {
         OR: [
           { city_name: { equals: rawClean, mode: 'insensitive' } },
-          { city_name: { equals: queryClean, mode: 'insensitive' } }
+          { city_name: { equals: queryClean, mode: 'insensitive' } },
+          { city_name: { contains: queryClean, mode: 'insensitive' } }
         ]
       },
       include: {
@@ -694,92 +991,70 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
     if (benchmarkKey) {
       data = GLOBAL_COST_BENCHMARKS[benchmarkKey];
     } else {
-      // Dynamic AI Synthesis with rigorous domestic/international detection
-      const isEurope = ['europe', 'france', 'italy', 'spain', 'germany', 'uk', 'england', 'switzerland', 'austria', 'netherlands', 'prague', 'barcelona', 'berlin', 'madrid', 'vienna', 'amsterdam', 'munich', 'florence', 'venice', 'lisbon', 'athens', 'greece', 'portugal', 'belgium', 'brussels', 'ireland', 'dublin', 'scotland', 'edinburgh'].some(c => queryClean.includes(c));
-      const isAmericas = ['usa', 'america', 'united states', 'canada', 'toronto', 'vancouver', 'mexico', 'brazil', 'argentina', 'california', 'los angeles', 'chicago', 'miami', 'san francisco', 'las vegas', 'washington', 'boston', 'seattle'].some(c => queryClean.includes(c));
-      const isEastAsia = ['japan', 'korea', 'china', 'tokyo', 'seoul', 'beijing', 'shanghai', 'kyoto', 'osaka', 'taiwan', 'taipei', 'hong kong'].some(c => queryClean.includes(c));
-      const isSEAsia = ['thailand', 'vietnam', 'malaysia', 'indonesia', 'philippines', 'bangkok', 'hanoi', 'ho chi minh', 'phuket', 'kuala lumpur', 'bali', 'singapore', 'jakarta'].some(c => queryClean.includes(c));
-      const isMiddleEast = ['dubai', 'uae', 'emirates', 'abu dhabi', 'qatar', 'doha', 'saudi', 'riyadh', 'egypt', 'cairo', 'turkey', 'istanbul'].some(c => queryClean.includes(c));
-      const isOceania = ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'new zealand', 'auckland', 'fiji'].some(c => queryClean.includes(c));
+      // Dynamic AI Synthesis with Country Knowledge Lookup
+      let matchedCountryKey = Object.keys(WORLD_COUNTRY_LOOKUP).find(k => queryClean.includes(k) || k.includes(queryClean));
 
-      if (isEurope) {
+      if (matchedCountryKey) {
+        const cInfo = WORLD_COUNTRY_LOOKUP[matchedCountryKey];
         data = {
-          country: 'Europe Region', currency: 'EUR', symbol: '€', rate: 90.5,
-          acc_b: 38, acc_s: 115, acc_l: 310, meal_b: 22, meal_s: 58, meal_l: 145, transit: 8.5, taxi: 2.0,
+          country: cInfo.country,
+          currency: cInfo.currency,
+          symbol: cInfo.symbol,
+          rate: cInfo.rate,
+          acc_b: Math.round(3500 / cInfo.rate),
+          acc_s: Math.round(10000 / cInfo.rate),
+          acc_l: Math.round(28000 / cInfo.rate),
+          meal_b: Math.round(1600 / cInfo.rate),
+          meal_s: Math.round(4500 / cInfo.rate),
+          meal_l: Math.round(12000 / cInfo.rate),
+          transit: Math.round(650 / cInfo.rate),
+          taxi: Math.round(160 / cInfo.rate),
           attractions: [
-            { name: `${formattedCity} Historic Old Town & Cathedral Square`, category: 'Historic Cathedral', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Royal Castle & State Art Museum`, category: 'Royal Museum', price: 18, hours: 3.0 },
-            { name: `${formattedCity} Riverfront Promenade & Panoramic Viewpoint`, category: 'Scenic River Walk', price: 12, hours: 2.0 },
-            { name: `${formattedCity} Cultural Heritage District & Market`, category: 'Cultural Quarter', price: 0, hours: 2.0 }
-          ]
-        };
-      } else if (isAmericas) {
-        data = {
-          country: 'Americas', currency: 'USD', symbol: '$', rate: 84.0,
-          acc_b: 45, acc_s: 140, acc_l: 380, meal_b: 22, meal_s: 55, meal_l: 150, transit: 10.0, taxi: 2.5,
-          attractions: [
-            { name: `${formattedCity} Downtown Plaza & Iconic City Landmark`, category: 'City Landmark', price: 0, hours: 2.0 },
-            { name: `${formattedCity} State Museum of Fine Arts & Heritage`, category: 'Arts & History Museum', price: 25, hours: 3.0 },
-            { name: `${formattedCity} Waterfront Harbour & Skyline Park`, category: 'Harbour Promenade', price: 0, hours: 2.5 },
-            { name: `${formattedCity} City Observation Deck & Skyline View`, category: 'Observation Deck', price: 32, hours: 2.0 }
-          ]
-        };
-      } else if (isEastAsia) {
-        data = {
-          country: 'East Asia', currency: 'USD', symbol: '$', rate: 84.0,
-          acc_b: 28, acc_s: 85, acc_l: 240, meal_b: 14, meal_s: 38, meal_l: 110, transit: 6.0, taxi: 1.8,
-          attractions: [
-            { name: `${formattedCity} Ancient Temple & Traditional Garden`, category: 'Historic Temple', price: 5, hours: 2.5 },
-            { name: `${formattedCity} Historic Castle & Traditional Quarter`, category: 'Heritage Castle', price: 12, hours: 3.0 },
-            { name: `${formattedCity} Night Market & Street Food Alley`, category: 'Cultural Food Market', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Panoramic Mountain / Skyline View`, category: 'Scenic Observation', price: 18, hours: 2.0 }
-          ]
-        };
-      } else if (isSEAsia) {
-        data = {
-          country: 'Southeast Asia', currency: 'USD', symbol: '$', rate: 84.0,
-          acc_b: 20, acc_s: 60, acc_l: 175, meal_b: 10, meal_s: 26, meal_l: 80, transit: 4.5, taxi: 1.2,
-          attractions: [
-            { name: `${formattedCity} Sacred Temple & Royal Sanctuary`, category: 'Temple Sanctuary', price: 6, hours: 2.5 },
-            { name: `${formattedCity} Traditional Floating & Night Market`, category: 'Cultural Market', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Tropical Nature Waterfall & Reserve`, category: 'Nature Waterfall', price: 10, hours: 3.0 },
-            { name: `${formattedCity} Cultural Folk Dance & Heritage Centre`, category: 'Arts & Culture', price: 12, hours: 2.0 }
-          ]
-        };
-      } else if (isMiddleEast) {
-        data = {
-          country: 'Middle East', currency: 'AED', symbol: 'AED', rate: 22.8,
-          acc_b: 95, acc_s: 300, acc_l: 950, meal_b: 40, meal_s: 115, meal_l: 380, transit: 18, taxi: 2.2,
-          attractions: [
-            { name: `${formattedCity} Grand Mosque & Islamic Heritage Center`, category: 'Spiritual Center', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Historic Heritage Souq & Spice Market`, category: 'Traditional Souq', price: 0, hours: 2.0 },
-            { name: `${formattedCity} Desert Dunes & Sunset Safari Camp`, category: 'Desert Adventure', price: 180, hours: 5.0 },
-            { name: `${formattedCity} Modern Skyline Observation Point`, category: 'Observation Deck', price: 120, hours: 2.0 }
-          ]
-        };
-      } else if (isOceania) {
-        data = {
-          country: 'Australia & Pacific', currency: 'AUD', symbol: 'A$', rate: 55.5,
-          acc_b: 48, acc_s: 155, acc_l: 400, meal_b: 22, meal_s: 56, meal_l: 150, transit: 10, taxi: 2.5,
-          attractions: [
-            { name: `${formattedCity} Harbour Foreshore & Botanical Gardens`, category: 'Coastal Park', price: 0, hours: 2.5 },
-            { name: `${formattedCity} Heritage Art Gallery & Museum`, category: 'Art Museum', price: 20, hours: 2.5 },
-            { name: `${formattedCity} Coastal Ocean Trail & Surf Beach`, category: 'Beach & Trail', price: 0, hours: 3.0 },
-            { name: `${formattedCity} Native Wildlife Sanctuary & Safari`, category: 'Wildlife Sanctuary', price: 42, hours: 3.5 }
+            { name: `${formattedCity} National Heritage & Cultural Landmark`, category: 'Historic Landmark', price: Math.round(1200 / cInfo.rate), hours: 2.5 },
+            { name: `${formattedCity} Royal Palace & Historical Museum`, category: 'Palace Museum', price: Math.round(1600 / cInfo.rate), hours: 3.0 },
+            { name: `${formattedCity} Scenic Waterfront / Mountain Viewpoint`, category: 'Scenic Nature', price: Math.round(800 / cInfo.rate), hours: 2.0 },
+            { name: `${formattedCity} Traditional Old Town & Cultural Market Walk`, category: 'Cultural Quarter', price: 0, hours: 2.5 }
           ]
         };
       } else {
-        // DEFAULT IS ALWAYS DOMESTIC INDIA (INR ₹)
-        data = {
-          country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
-          acc_b: 750, acc_s: 2200, acc_l: 6800, meal_b: 380, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
-          attractions: [
-            { name: `${formattedCity} Ancient Sacred Temple & Sanctum Darshan`, category: 'Spiritual Shrine', price: 50, hours: 2.5 },
-            { name: `${formattedCity} Historical Heritage Fort & Royal Citadel`, category: 'Heritage Fort', price: 25, hours: 2.5 },
-            { name: `${formattedCity} Scenic Hills & Waterfalls Viewpoint`, category: 'Scenic Nature', price: 20, hours: 2.0 },
-            { name: `${formattedCity} Traditional Heritage Bazaar & Cultural Food Trail`, category: 'Cultural Market', price: 0, hours: 2.0 }
-          ]
-        };
+        // Check if query is Indian or default
+        const indianPatterns = [
+          'india', 'andhra', 'telangana', 'karnataka', 'tamil', 'kerala', 'maharashtra', 'gujarat',
+          'rajasthan', 'punjab', 'bengal', 'odisha', 'bihar', 'up', 'uttar', 'madhya', 'himachal',
+          'kashmir', 'patna', 'indore', 'bhubaneswar', 'madurai', 'trivandrum', 'thiruvananthapuram',
+          'calicut', 'kozhikode', 'mangalore', 'mangaluru', 'mysore', 'pune', 'nagpur', 'surat',
+          'vadodara', 'ahmedabad', 'ranchi', 'guwahati', 'shillong', 'gangtok', 'darjeeling',
+          'jodhpur', 'jaisalmer', 'bikaner', 'pushkar', 'ajmer', 'mathura', 'vrindavan', 'haridwar',
+          'dehradun', 'nainital', 'mussoorie', 'kullu', 'dharamshala', 'dalhousie', 'hampi',
+          'puri', 'ongole', 'guntur', 'chittoor', 'kadapa', 'kurnool', 'tirupati', 'tirumala'
+        ];
+        const isDomestic = indianPatterns.some(p => queryClean.includes(p)) ||
+          queryClean.endsWith('am') || queryClean.endsWith('puram') || queryClean.endsWith('palli') || queryClean.endsWith('pet') || queryClean.endsWith('konda');
+
+        if (isDomestic) {
+          data = {
+            country: 'India', currency: 'INR', symbol: '₹', rate: 1.0,
+            acc_b: 750, acc_s: 2200, acc_l: 6800, meal_b: 380, meal_s: 900, meal_l: 2200, transit: 300, taxi: 18,
+            attractions: [
+              { name: `${formattedCity} Ancient Sacred Temple & Sanctum Darshan`, category: 'Spiritual Shrine', price: 50, hours: 2.5 },
+              { name: `${formattedCity} Historical Heritage Fort & Royal Citadel`, category: 'Heritage Fort', price: 25, hours: 2.5 },
+              { name: `${formattedCity} Scenic Hills & Waterfalls Viewpoint`, category: 'Scenic Nature', price: 20, hours: 2.0 },
+              { name: `${formattedCity} Traditional Heritage Bazaar & Cultural Food Trail`, category: 'Cultural Market', price: 0, hours: 2.0 }
+            ]
+          };
+        } else {
+          // General International Destination Model
+          data = {
+            country: 'International', currency: 'USD', symbol: '$', rate: 84.0,
+            acc_b: 40, acc_s: 130, acc_l: 350, meal_b: 20, meal_s: 52, meal_l: 140, transit: 9.0, taxi: 2.2,
+            attractions: [
+              { name: `${formattedCity} Historic Old Town & City Landmark`, category: 'City Landmark', price: 0, hours: 2.0 },
+              { name: `${formattedCity} National Museum & Art Gallery Pass`, category: 'Museum', price: 22, hours: 3.0 },
+              { name: `${formattedCity} Panoramic Observation Deck & Skyline View`, category: 'Observation Deck', price: 28, hours: 2.0 },
+              { name: `${formattedCity} Waterfront Harbour & Botanical Promenade`, category: 'Nature Promenade', price: 0, hours: 2.0 }
+            ]
+          };
+        }
       }
     }
 
@@ -1040,8 +1315,8 @@ app.post('/api/trips/build-budget', async (req, res) => {
 
     const breakdown = spResult.map(row => {
       let finalAllocated = Number(row.allocated_inr);
-      // Replace sightseeing estimation with exact tickets if attractions were chosen
-      if (row.category_code === 'SIGHTSEEING' && attractionsCostInr > 0) {
+      // Replace sightseeing estimation with exact tickets if attractions were specified
+      if (row.category_code === 'SIGHTSEEING' && Array.isArray(attraction_ids)) {
         finalAllocated = Math.round(attractionsCostInr);
       }
 

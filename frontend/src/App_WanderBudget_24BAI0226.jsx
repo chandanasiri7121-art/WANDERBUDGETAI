@@ -4,7 +4,7 @@ import {
   AlertTriangle, ShieldCheck, CheckCircle2, Search, ArrowRight, RefreshCw,
   PlusCircle, CreditCard, ChevronRight, PieChart as PieIcon, BarChart3,
   Hotel, Utensils, Bus, Camera, ShieldAlert, Award, FileText, Database,
-  Activity, Layers, Info, Check, LogOut, UserCheck
+  Activity, Layers, Info, Check, LogOut, UserCheck, Globe
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
@@ -19,6 +19,167 @@ const CATEGORY_COLORS = {
   SIGHTSEEING: '#a78bfa',   // Violet
   BUFFER: '#f43f5e',        // Rose
   MISC: '#94a3b8'           // Slate
+};
+
+// Continents Taxonomy & World Mapping
+const CONTINENT_TABS = [
+  { id: 'ALL', label: '🌍 All World' },
+  { id: 'EUROPE', label: '🏰 Europe' },
+  { id: 'ASIA', label: '🌸 Asia' },
+  { id: 'AMERICAS', label: '🗽 Americas' },
+  { id: 'MIDDLE_EAST_AFRICA', label: '🕌 Middle East & Africa' },
+  { id: 'OCEANIA', label: '🦘 Oceania' },
+  { id: 'INDIA', label: '🛕 India' }
+];
+
+const COUNTRY_TO_CONTINENT = {
+  'India': 'INDIA',
+  'Switzerland': 'EUROPE',
+  'France': 'EUROPE',
+  'United Kingdom': 'EUROPE',
+  'Italy': 'EUROPE',
+  'Spain': 'EUROPE',
+  'Netherlands': 'EUROPE',
+  'Germany': 'EUROPE',
+  'Czech Republic': 'EUROPE',
+  'Austria': 'EUROPE',
+  'Greece': 'EUROPE',
+  'Hungary': 'EUROPE',
+  'Portugal': 'EUROPE',
+  'Iceland': 'EUROPE',
+  'Sweden': 'EUROPE',
+  'Denmark': 'EUROPE',
+  'Ireland': 'EUROPE',
+  'Japan': 'ASIA',
+  'Indonesia': 'ASIA',
+  'South Korea': 'ASIA',
+  'Thailand': 'ASIA',
+  'Singapore': 'ASIA',
+  'Malaysia': 'ASIA',
+  'Vietnam': 'ASIA',
+  'Hong Kong': 'ASIA',
+  'Taiwan': 'ASIA',
+  'China': 'ASIA',
+  'Nepal': 'ASIA',
+  'Sri Lanka': 'ASIA',
+  'Cambodia': 'ASIA',
+  'United States': 'AMERICAS',
+  'Canada': 'AMERICAS',
+  'Mexico': 'AMERICAS',
+  'Brazil': 'AMERICAS',
+  'Argentina': 'AMERICAS',
+  'Peru': 'AMERICAS',
+  'United Arab Emirates': 'MIDDLE_EAST_AFRICA',
+  'Qatar': 'MIDDLE_EAST_AFRICA',
+  'Egypt': 'MIDDLE_EAST_AFRICA',
+  'Morocco': 'MIDDLE_EAST_AFRICA',
+  'South Africa': 'MIDDLE_EAST_AFRICA',
+  'Turkey': 'MIDDLE_EAST_AFRICA',
+  'Kenya': 'MIDDLE_EAST_AFRICA',
+  'Australia': 'OCEANIA',
+  'New Zealand': 'OCEANIA'
+};
+
+const POPULAR_WORLD_DESTINATIONS = {
+  ALL: [
+    { id: 'Paris', label: '🥐 Paris' },
+    { id: 'Tokyo', label: '🗼 Tokyo' },
+    { id: 'New York', label: '🗽 New York' },
+    { id: 'Dubai', label: '🏙️ Dubai' },
+    { id: 'Rome', label: '🏛️ Rome' },
+    { id: 'Bangkok', label: '🏮 Bangkok' },
+    { id: 'London', label: '🎡 London' },
+    { id: 'Sydney', label: '🦘 Sydney' },
+    { id: 'Zurich', label: '❄️ Zurich' },
+    { id: 'Singapore', label: '🦁 Singapore' },
+    { id: 'Barcelona', label: '🎨 Barcelona' },
+    { id: 'Cairo', label: '🏺 Cairo' },
+    { id: 'Tirupati', label: '🛕 Tirupati' },
+    { id: 'Hyderabad', label: '🕌 Hyderabad' },
+    { id: 'Goa', label: '🏖️ Goa' }
+  ],
+  EUROPE: [
+    { id: 'Paris', label: '🥐 Paris' },
+    { id: 'Rome', label: '🏛️ Rome' },
+    { id: 'Barcelona', label: '🎨 Barcelona' },
+    { id: 'London', label: '🎡 London' },
+    { id: 'Amsterdam', label: '🚲 Amsterdam' },
+    { id: 'Zurich', label: '❄️ Zurich' },
+    { id: 'Venice', label: '🛶 Venice' },
+    { id: 'Prague', label: '🏰 Prague' },
+    { id: 'Vienna', label: '🎻 Vienna' },
+    { id: 'Athens', label: '🏺 Athens' },
+    { id: 'Berlin', label: '🐻 Berlin' },
+    { id: 'Santorini', label: '🌅 Santorini' },
+    { id: 'Reykjavik', label: '🌋 Reykjavik' },
+    { id: 'Stockholm', label: '⛵ Stockholm' },
+    { id: 'Edinburgh', label: '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Edinburgh' },
+    { id: 'Madrid', label: '💃 Madrid' }
+  ],
+  ASIA: [
+    { id: 'Tokyo', label: '🗼 Tokyo' },
+    { id: 'Kyoto', label: '⛩️ Kyoto' },
+    { id: 'Osaka', label: '🐙 Osaka' },
+    { id: 'Bangkok', label: '🏮 Bangkok' },
+    { id: 'Phuket', label: '🏝️ Phuket' },
+    { id: 'Singapore', label: '🦁 Singapore' },
+    { id: 'Bali', label: '🌴 Bali' },
+    { id: 'Seoul', label: '🌸 Seoul' },
+    { id: 'Hong Kong', label: '🌃 Hong Kong' },
+    { id: 'Taipei', label: '🥟 Taipei' },
+    { id: 'Shanghai', label: '🏙️ Shanghai' },
+    { id: 'Beijing', label: '🐉 Beijing' },
+    { id: 'Hanoi', label: '🍜 Hanoi' },
+    { id: 'Kathmandu', label: '🏔️ Kathmandu' },
+    { id: 'Siem Reap', label: '🛕 Siem Reap' }
+  ],
+  AMERICAS: [
+    { id: 'New York', label: '🗽 New York' },
+    { id: 'San Francisco', label: '🌉 San Francisco' },
+    { id: 'Los Angeles', label: '🎬 Los Angeles' },
+    { id: 'Chicago', label: '🌆 Chicago' },
+    { id: 'Las Vegas', label: '🎰 Las Vegas' },
+    { id: 'Toronto', label: '🍁 Toronto' },
+    { id: 'Vancouver', label: '🏔️ Vancouver' },
+    { id: 'Rio de Janeiro', label: '🏖️ Rio de Janeiro' },
+    { id: 'Cancun', label: '🌊 Cancun' },
+    { id: 'Buenos Aires', label: '💃 Buenos Aires' },
+    { id: 'Cusco', label: '🦙 Cusco' }
+  ],
+  MIDDLE_EAST_AFRICA: [
+    { id: 'Dubai', label: '🏙️ Dubai' },
+    { id: 'Abu Dhabi', label: '🕌 Abu Dhabi' },
+    { id: 'Doha', label: '🇶🇦 Doha' },
+    { id: 'Cairo', label: '🏺 Cairo' },
+    { id: 'Istanbul', label: '🕌 Istanbul' },
+    { id: 'Cape Town', label: '⛰️ Cape Town' },
+    { id: 'Marrakech', label: '🐪 Marrakech' },
+    { id: 'Nairobi', label: '🦁 Nairobi' }
+  ],
+  OCEANIA: [
+    { id: 'Sydney', label: '🦘 Sydney' },
+    { id: 'Melbourne', label: '☕ Melbourne' },
+    { id: 'Auckland', label: '⛵ Auckland' },
+    { id: 'Queenstown', label: '🏔️ Queenstown' }
+  ],
+  INDIA: [
+    { id: 'Tirupati', label: '🛕 Tirupati' },
+    { id: 'Hyderabad', label: '🕌 Hyderabad' },
+    { id: 'Goa', label: '🏖️ Goa' },
+    { id: 'Manali', label: '🏔️ Manali' },
+    { id: 'Bangalore', label: '🌳 Bangalore' },
+    { id: 'Chennai', label: '🌊 Chennai' },
+    { id: 'Delhi', label: '🏛️ Delhi' },
+    { id: 'Agra', label: '🕌 Agra' },
+    { id: 'Varanasi', label: '🪔 Varanasi' },
+    { id: 'Jaipur', label: '🏰 Jaipur' },
+    { id: 'Udaipur', label: '⛵ Udaipur' },
+    { id: 'Kochi', label: '🌴 Kochi' },
+    { id: 'Munnar', label: '🍃 Munnar' },
+    { id: 'Rishikesh', label: '🧘 Rishikesh' },
+    { id: 'Amritsar', label: '✨ Amritsar' },
+    { id: 'Vizag', label: '🏖️ Vizag' }
+  ]
 };
 
 export default function App_WanderBudget_24BAI0226() {
@@ -45,6 +206,8 @@ export default function App_WanderBudget_24BAI0226() {
   const [searchQuery, setSearchQuery] = useState('');
   const [analyzingCity, setAnalyzingCity] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState(null);
+  const [selectedContinent, setSelectedContinent] = useState('ALL');
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
 
   // Trip Budget Builder State
   const [builderDestinationId, setBuilderDestinationId] = useState('');
@@ -729,40 +892,52 @@ export default function App_WanderBudget_24BAI0226() {
                   </button>
                 </form>
 
-                {/* Quick Destination Pills */}
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <span className="text-xs text-slate-400">Popular Destinations:</span>
-                  {[
-                    { id: 'Tirupati', label: '🛕 Tirupati' },
-                    { id: 'Hyderabad', label: '🕌 Hyderabad' },
-                    { id: 'Goa', label: '🏖️ Goa' },
-                    { id: 'Manali', label: '🏔️ Manali' },
-                    { id: 'Bangalore', label: '🌳 Bangalore' },
-                    { id: 'Chennai', label: '🌊 Chennai' },
-                    { id: 'Delhi', label: '🏛️ Delhi' },
-                    { id: 'Agra', label: '🕌 Agra' },
-                    { id: 'Varanasi', label: '🪔 Varanasi' },
-                    { id: 'Tokyo', label: '🗼 Tokyo' },
-                    { id: 'Paris', label: '🥐 Paris' },
-                    { id: 'Bali', label: '🌴 Bali' },
-                    { id: 'Zurich', label: '❄️ Zurich' },
-                    { id: 'London', label: '🎡 London' },
-                    { id: 'Dubai', label: '🏙️ Dubai' },
-                    { id: 'Seoul', label: '🌸 Seoul' },
-                    { id: 'Bangkok', label: '🏮 Bangkok' }
-                  ].map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleAnalyzeCity(item.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                        selectedDestination?.city_name?.toLowerCase() === item.id.toLowerCase()
-                          ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
-                          : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                {/* Continental Selection Tabs & Quick World Destination Pills */}
+                <div className="space-y-2.5 pt-3 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                      Browse Places Across Continents:
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {POPULAR_WORLD_DESTINATIONS[selectedContinent]?.length || 0} Premier Hubs
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {CONTINENT_TABS.map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSelectedContinent(tab.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          selectedContinent === tab.id
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                            : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Quick Destination Pills for Selected Continent */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {(POPULAR_WORLD_DESTINATIONS[selectedContinent] || POPULAR_WORLD_DESTINATIONS.ALL).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleAnalyzeCity(item.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                          selectedDestination?.city_name?.toLowerCase() === item.id.toLowerCase()
+                            ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
+                            : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1095,54 +1270,91 @@ export default function App_WanderBudget_24BAI0226() {
 
             {/* Destinations Catalog Grid */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h4 className="text-base font-bold text-white flex items-center gap-2">
                     <Globe className="w-5 h-5 text-emerald-400" />
-                    All Indexed Travel Destinations ({destinations.length} Cities in Database)
+                    World Travel Catalog ({destinations.length} Destinations Worldwide)
                   </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Click any destination to load all its authentic attractions, cost indicators, and customize your trip</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Explore authentic destinations across 6 continents. Click any city to load real-time cost indexes & attractions</p>
                 </div>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                  {destinations.length} Active Cities
-                </span>
+
+                {/* Search Box in Catalog */}
+                <div className="relative w-full md:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search world destinations..."
+                    value={catalogSearchQuery}
+                    onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-1">
-                {destinations.map(d => {
-                  const isCurrent = selectedDestination?.destination_id === d.destination_id;
+              {/* Continent Filter Chips */}
+              <div className="flex flex-wrap gap-1.5 border-b border-slate-800 pb-3">
+                {CONTINENT_TABS.map(tab => {
+                  const count = tab.id === 'ALL'
+                    ? destinations.length
+                    : destinations.filter(d => (COUNTRY_TO_CONTINENT[d.country_name] || 'ALL') === tab.id).length;
                   return (
                     <button
-                      key={d.destination_id}
-                      onClick={() => {
-                        setSelectedDestination(d);
-                        setBuilderDestinationId(d.destination_id);
-                        if (d.attractions && d.attractions.length > 0) {
-                          setSelectedAttractionIds(d.attractions.map(a => a.attraction_id));
-                        } else {
-                          setSelectedAttractionIds([]);
-                        }
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        isCurrent
-                          ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg ring-1 ring-emerald-500/40'
-                          : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/50'
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedContinent(tab.id)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                        selectedContinent === tab.id
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                          : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
                       }`}
                     >
-                      <div className="font-bold text-xs truncate text-slate-100 flex items-center justify-between">
-                        <span>{d.city_name}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">{d.currency_symbol}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{d.country_name}</div>
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[10px]">
-                        <span className="text-emerald-400 font-mono">
-                          {d.attractions ? `${d.attractions.length} spots` : (d._count?.attractions ? `${d._count.attractions} spots` : 'spots')}
-                        </span>
-                        <span className="text-[9px] text-slate-500 uppercase font-mono">SELECT</span>
-                      </div>
+                      <span>{tab.label}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-slate-800/80 rounded font-mono text-slate-400">
+                        {count}
+                      </span>
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Filtered Destinations Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-1">
+                {destinations
+                  .filter(d => {
+                    const cont = COUNTRY_TO_CONTINENT[d.country_name] || 'ALL';
+                    const matchesContinent = selectedContinent === 'ALL' || cont === selectedContinent;
+                    const matchesSearch = !catalogSearchQuery.trim() ||
+                      d.city_name?.toLowerCase().includes(catalogSearchQuery.toLowerCase()) ||
+                      d.country_name?.toLowerCase().includes(catalogSearchQuery.toLowerCase());
+                    return matchesContinent && matchesSearch;
+                  })
+                  .map(d => {
+                    const isCurrent = selectedDestination?.destination_id === d.destination_id;
+                    return (
+                      <button
+                        key={d.destination_id}
+                        onClick={() => handleAnalyzeCity(d.city_name)}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          isCurrent
+                            ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg ring-1 ring-emerald-500/40'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <div className="font-bold text-xs truncate text-slate-100 flex items-center justify-between">
+                          <span>{d.city_name}</span>
+                          <span className="text-[10px] text-emerald-400 font-mono font-semibold">{d.currency_symbol}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate mt-0.5">{d.country_name}</div>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[10px]">
+                          <span className="text-teal-400 font-mono">
+                            {d.attractions ? `${d.attractions.length} spots` : (d._count?.attractions ? `${d._count.attractions} spots` : 'spots')}
+                          </span>
+                          <span className="text-[9px] text-slate-500 uppercase font-mono">EXPLORE</span>
+                        </div>
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -1216,11 +1428,19 @@ export default function App_WanderBudget_24BAI0226() {
                         onChange={(e) => setBuilderDestinationId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
                       >
-                        {destinations.map(d => (
-                          <option key={d.destination_id} value={d.destination_id}>
-                            {d.city_name}, {d.country_name} ({d.currency_code})
-                          </option>
-                        ))}
+                        {CONTINENT_TABS.filter(c => c.id !== 'ALL').map(continent => {
+                          const list = destinations.filter(d => (COUNTRY_TO_CONTINENT[d.country_name] || 'ALL') === continent.id);
+                          if (!list || list.length === 0) return null;
+                          return (
+                            <optgroup key={continent.id} label={`${continent.label} (${list.length})`}>
+                              {list.map(d => (
+                                <option key={d.destination_id} value={d.destination_id}>
+                                  {d.city_name}, {d.country_name} ({d.currency_code} {d.currency_symbol})
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
                       </select>
                     </div>
 
@@ -1575,11 +1795,19 @@ export default function App_WanderBudget_24BAI0226() {
                         onChange={(e) => setBuilderDestinationId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-teal-500 transition-colors"
                       >
-                        {destinations.map(d => (
-                          <option key={d.destination_id} value={d.destination_id}>
-                            {d.city_name}, {d.country_name} ({d.currency_code})
-                          </option>
-                        ))}
+                        {CONTINENT_TABS.filter(c => c.id !== 'ALL').map(continent => {
+                          const list = destinations.filter(d => (COUNTRY_TO_CONTINENT[d.country_name] || 'ALL') === continent.id);
+                          if (!list || list.length === 0) return null;
+                          return (
+                            <optgroup key={continent.id} label={`${continent.label} (${list.length})`}>
+                              {list.map(d => (
+                                <option key={d.destination_id} value={d.destination_id}>
+                                  {d.city_name}, {d.country_name} ({d.currency_code} {d.currency_symbol})
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
                       </select>
                     </div>
 
