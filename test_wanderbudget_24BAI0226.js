@@ -302,6 +302,23 @@ async function runTests() {
     }
   });
 
+  // Test 16: Traveler AI Copilot Chatbot (Cost Estimation & Comparisons)
+  await test('Test 16: Traveler AI Copilot Chatbot (PostgreSQL Grounding & Cost Estimation)', async () => {
+    const res = await fetch(`${BASE_URL}/api/ai/traveler-chatbot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'What is the 4 day budget for Tirupati?' })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.reply || typeof data.reply !== 'string' || !data.reply.includes('Tirupati')) {
+      throw new Error('Chatbot did not generate grounded reply for Tirupati');
+    }
+    if (!data.detected_destination || data.detected_destination.city_name !== 'Tirupati') {
+      throw new Error('Chatbot did not detect Tirupati destination context');
+    }
+  });
+
   console.log('\n================================================================');
   console.log(` Test Results: ${passed} Passed | ${failed} Failed `);
   console.log('================================================================');

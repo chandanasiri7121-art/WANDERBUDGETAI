@@ -4,7 +4,8 @@ import {
   AlertTriangle, ShieldCheck, CheckCircle2, Search, ArrowRight, RefreshCw,
   PlusCircle, CreditCard, ChevronRight, PieChart as PieIcon, BarChart3,
   Hotel, Utensils, Bus, Camera, ShieldAlert, Award, FileText, Database,
-  Activity, Layers, Info, Check, LogOut, UserCheck, Globe, Key, Cpu
+  Activity, Layers, Info, Check, LogOut, UserCheck, Globe, Key, Cpu,
+  Bot, MessageSquare, Send, Trash2, X, Minimize2, Maximize2
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
@@ -182,6 +183,110 @@ const POPULAR_WORLD_DESTINATIONS = {
   ]
 };
 
+// Markdown Formatter Helper for Traveler Chatbot
+function renderFormattedMessage(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const elements = [];
+  let tableRows = [];
+  let inTable = false;
+
+  const flushTable = (key) => {
+    if (tableRows.length > 0) {
+      const headerRow = tableRows[0];
+      const dataRows = tableRows.slice(2); // skip separator row
+      elements.push(
+        <div key={`table_${key}`} className="my-2 overflow-x-auto rounded-lg border border-slate-700/80 bg-slate-950/60">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-700 bg-slate-800/60">
+                {headerRow.map((cell, cIdx) => (
+                  <th key={cIdx} className="p-2 font-semibold text-slate-200">
+                    {parseInlineStyles(cell.trim())}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dataRows.map((row, rIdx) => (
+                <tr key={rIdx} className="border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30">
+                  {row.map((cell, cIdx) => (
+                    <td key={cIdx} className="p-2 text-slate-300">
+                      {parseInlineStyles(cell.trim())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableRows = [];
+      inTable = false;
+    }
+  };
+
+  const parseInlineStyles = (str) => {
+    // Bold: **text**
+    const parts = [];
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = boldRegex.exec(str)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(str.substring(lastIndex, match.index));
+      }
+      parts.push(<strong key={match.index} className="font-semibold text-slate-100">{match[1]}</strong>);
+      lastIndex = boldRegex.lastIndex;
+    }
+    if (lastIndex < str.length) {
+      parts.push(str.substring(lastIndex));
+    }
+    return parts.length > 0 ? parts : str;
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      inTable = true;
+      const cols = trimmed.split('|').slice(1, -1);
+      tableRows.push(cols);
+      return;
+    } else if (inTable) {
+      flushTable(idx);
+    }
+
+    if (trimmed.startsWith('### ')) {
+      elements.push(
+        <h4 key={idx} className="text-xs font-bold text-emerald-400 mt-2 mb-1 flex items-center gap-1">
+          {parseInlineStyles(trimmed.replace('### ', ''))}
+        </h4>
+      );
+    } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      elements.push(
+        <div key={idx} className="flex items-start gap-1.5 my-0.5 text-xs text-slate-300 ml-1">
+          <span className="text-emerald-400 text-xs mt-0.5">•</span>
+          <span className="flex-1">{parseInlineStyles(trimmed.slice(2))}</span>
+        </div>
+      );
+    } else if (trimmed === '') {
+      elements.push(<div key={idx} className="h-1" />);
+    } else {
+      elements.push(
+        <p key={idx} className="text-xs text-slate-300 my-0.5 leading-relaxed">
+          {parseInlineStyles(trimmed)}
+        </p>
+      );
+    }
+  });
+
+  if (inTable) {
+    flushTable(lines.length);
+  }
+
+  return elements;
+}
+
 export default function App_WanderBudget_24BAI0226() {
   // Current Active Tab
   const [activeTab, setActiveTab] = useState('ai_explorer'); // 'ai_explorer', 'builder', 'trips', 'expenses', 'admin'
@@ -314,7 +419,94 @@ export default function App_WanderBudget_24BAI0226() {
     }
   };
 
-  // 1. Initial Load: Login & Fetch Master Data
+  // Traveler AI Copilot Chatbot State (24BAI0226)
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      text: `Hello! 👋 I am **WanderBot**, your intelligent Traveler Copilot for **WanderBudget AI**!
+
+I have direct access to our **3NF PostgreSQL database** with **98 global destinations, 417 verified attractions, and real-time cost-of-living indices**.
+
+Ask me anything like:
+* 💰 *"What is the budget for 4 days in Tirupati?"*
+* 🥐 *"Compare Tokyo vs Paris daily costs"*
+* 🛕 *"What are the best attractions to visit in Tirupati?"*
+* 🆓 *"Show me free attractions in Rome"*`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSuggestedPrompts, setChatSuggestedPrompts] = useState([
+    "What is the budget for 4 days in Tirupati?",
+    "Compare Tokyo vs Paris daily costs",
+    "Show top attractions in Tirupati",
+    "What can I do in Hyderabad with ₹15,000?"
+  ]);
+
+  const handleSendChatMessage = async (customPrompt) => {
+    const textToSend = typeof customPrompt === 'string' ? customPrompt : chatInput;
+    if (!textToSend || !textToSend.trim() || chatLoading) return;
+
+    const userMsg = {
+      id: 'user_' + Date.now(),
+      role: 'user',
+      text: textToSend.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const history = chatMessages.slice(-6).map(m => ({ role: m.role, text: m.text }));
+      const res = await fetch('/api/ai/traveler-chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend.trim(),
+          history,
+          destination_id: selectedDestination?.destination_id || null
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const botMsg = {
+          id: 'bot_' + Date.now(),
+          role: 'assistant',
+          text: data.reply,
+          engine: data.engine,
+          detected_destination: data.detected_destination,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setChatMessages(prev => [...prev, botMsg]);
+        if (data.suggested_prompts && data.suggested_prompts.length > 0) {
+          setChatSuggestedPrompts(data.suggested_prompts);
+        }
+      } else {
+        const errData = await res.json();
+        setChatMessages(prev => [...prev, {
+          id: 'bot_err_' + Date.now(),
+          role: 'assistant',
+          text: `⚠️ **Error:** ${errData.error || 'Failed to contact Traveler AI'}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
+        id: 'bot_err_' + Date.now(),
+        role: 'assistant',
+        text: `⚠️ **Network Error:** Could not connect to chatbot service (${err.message})`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
   useEffect(() => {
     async function init() {
       try {
@@ -931,6 +1123,18 @@ export default function App_WanderBudget_24BAI0226() {
           >
             <ShieldCheck className="w-4 h-4" />
             5. Admin & Audit Logs
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chatbot')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'chatbot'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/30'
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            6. 🤖 Traveler AI Copilot
           </button>
         </div>
 
@@ -2906,6 +3110,267 @@ export default function App_WanderBudget_24BAI0226() {
             </div>
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: TRAVELER AI COPILOT CHATBOT STUDIO */}
+        {/* ========================================================================= */}
+        {activeTab === 'chatbot' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Header banner */}
+            <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/40 p-6 rounded-2xl border border-emerald-500/20 shadow-xl flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-emerald-500/25">
+                  <Bot className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-slate-100">Traveler AI Copilot Studio</h2>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                      WanderBot v2.0
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Live interactive travel economist powered by PostgreSQL 3NF data & Google Gemini AI
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-300 font-mono flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Engine: {apiStatus?.gemini_configured ? 'Google Gemini 1.5 Flash' : 'PostgreSQL Domain Engine'}
+                </span>
+                <button
+                  onClick={() => setChatMessages([])}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 border border-slate-700/60 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Reset Chat
+                </button>
+              </div>
+            </div>
+
+            {/* Studio 2-column layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left sidebar: Context & Presets (4 cols) */}
+              <div className="lg:col-span-4 space-y-4">
+                {/* Active Destination Context Card */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                      Active Context
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {selectedDestination?.currency_code || 'INR'}
+                    </span>
+                  </div>
+                  <select
+                    value={selectedDestination?.destination_id || ''}
+                    onChange={(e) => {
+                      const d = destinations.find(x => x.destination_id === parseInt(e.target.value));
+                      if (d) setSelectedDestination(d);
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-medium"
+                  >
+                    {destinations.map(d => (
+                      <option key={d.destination_id} value={d.destination_id}>
+                        {d.city_name}, {d.country_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedDestination && (
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60 space-y-1.5 text-xs">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Daily Standard Hotel:</span>
+                        <span className="text-slate-200 font-mono font-medium">
+                          ₹{Math.round(Number(selectedDestination.cost_index?.accommodation_standard_night) * Number(selectedDestination.cost_index?.exchange_rate_to_inr || 1)).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Daily Meals (3x):</span>
+                        <span className="text-slate-200 font-mono font-medium">
+                          ₹{Math.round(Number(selectedDestination.cost_index?.meal_standard_day) * Number(selectedDestination.cost_index?.exchange_rate_to_inr || 1)).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Attractions in DB:</span>
+                        <span className="text-emerald-400 font-mono font-medium">
+                          {selectedDestination.attractions?.length || 0} Verified
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Travel Questions Library */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-2.5">
+                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                    Prompt Library
+                  </span>
+                  <div className="space-y-1.5">
+                    {[
+                      `What is a 5-day budget for ${selectedDestination?.city_name || 'Tirupati'}?`,
+                      `What are the best free attractions in ${selectedDestination?.city_name || 'Tirupati'}?`,
+                      `Compare ${selectedDestination?.city_name || 'Paris'} vs Tokyo daily costs`,
+                      `What can I do in Hyderabad with ₹15,000?`,
+                      `Give me backpacker tips for Bali`
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSendChatMessage(p)}
+                        className="w-full text-left p-2.5 rounded-xl bg-slate-950/50 hover:bg-emerald-950/20 border border-slate-800 hover:border-emerald-500/40 text-xs text-slate-300 hover:text-emerald-300 transition-all flex items-center justify-between group"
+                      >
+                        <span className="line-clamp-1">{p}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors ml-2 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Transfer to Builder CTA */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 text-xs space-y-2">
+                  <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                    <Compass className="w-4 h-4" />
+                    Interactive Trip Builder Link
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Satisfied with the AI Copilot recommendations? Transfer directly into Tab 2 to dynamically select attractions and generate an itemized trip budget.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (selectedDestination) {
+                        setBuilderDestinationId(selectedDestination.destination_id);
+                      }
+                      setActiveTab('builder');
+                    }}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
+                  >
+                    Load into Trip Builder
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right pane: Chat Studio Window (8 cols) */}
+              <div className="lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex flex-col h-[650px] overflow-hidden">
+                {/* Chat Studio Top Bar */}
+                <div className="px-5 py-3.5 border-b border-slate-800/80 bg-slate-950/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-200">WanderBot Assistant</div>
+                      <div className="text-[10px] text-slate-400">Context: {selectedDestination?.city_name || 'Global'}</div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    {chatMessages.length} Messages
+                  </div>
+                </div>
+
+                {/* Messages Container */}
+                <div className="flex-1 p-5 overflow-y-auto space-y-4">
+                  {chatMessages.map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {msg.role === 'assistant' && (
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[85%] rounded-2xl p-4 text-xs ${
+                          msg.role === 'user'
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium rounded-br-none shadow-md shadow-emerald-900/20'
+                            : 'bg-slate-950/80 border border-slate-800/80 text-slate-200 rounded-bl-none shadow-md'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                        ) : (
+                          renderFormattedMessage(msg.text)
+                        )}
+                        <div className={`mt-2 text-[10px] flex items-center gap-2 ${msg.role === 'user' ? 'text-emerald-200 justify-end' : 'text-slate-500'}`}>
+                          <span>{msg.timestamp}</span>
+                          {msg.engine && (
+                            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700">
+                              {msg.engine === 'GOOGLE_GEMINI_1_5_FLASH' ? 'Gemini AI' : '3NF Engine'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {chatLoading && (
+                    <div className="flex gap-3 items-center text-xs text-slate-400">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <div className="bg-slate-950/80 border border-slate-800 rounded-2xl px-4 py-3 rounded-bl-none flex items-center gap-2">
+                        <div className="flex gap-1.5 items-center">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-mono ml-2">WanderBot is calculating travel economics...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Suggested Prompt Chips */}
+                {chatSuggestedPrompts.length > 0 && (
+                  <div className="px-5 py-2.5 border-t border-slate-800/60 bg-slate-950/40 flex items-center gap-2 overflow-x-auto">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider shrink-0 font-semibold">
+                      Suggestions:
+                    </span>
+                    {chatSuggestedPrompts.map((prompt, pIdx) => (
+                      <button
+                        key={pIdx}
+                        onClick={() => handleSendChatMessage(prompt)}
+                        className="px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-emerald-500/20 border border-slate-700/60 hover:border-emerald-500/40 text-[11px] text-slate-300 hover:text-emerald-300 transition-colors shrink-0"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Chat Studio Input Form */}
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleSendChatMessage(); }}
+                  className="p-4 border-t border-slate-800 bg-slate-950/90 flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder={`Ask WanderBot about ${selectedDestination?.city_name || 'Tirupati'}, costs, itineraries, or comparisons...`}
+                    disabled={chatLoading}
+                    className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={chatLoading || !chatInput.trim()}
+                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+                  >
+                    <span>Send</span>
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* 4. FOOTER */}
@@ -3036,6 +3501,154 @@ export default function App_WanderBudget_24BAI0226() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 6. FLOATING TRAVELER AI COPILOT LAUNCHER & DRAWER */}
+      {!showChatDrawer && activeTab !== 'chatbot' && (
+        <button
+          onClick={() => setShowChatDrawer(true)}
+          className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 px-4 py-3 rounded-full shadow-2xl shadow-emerald-500/40 flex items-center gap-2.5 font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-emerald-300/40 group"
+        >
+          <div className="relative">
+            <Bot className="w-5 h-5 text-slate-950" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping" />
+          </div>
+          <span className="tracking-wide">Ask Traveler AI</span>
+          <span className="text-[10px] bg-slate-950/20 px-1.5 py-0.5 rounded-full font-mono">
+            Copilot
+          </span>
+        </button>
+      )}
+
+      {showChatDrawer && activeTab !== 'chatbot' && (
+        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[560px] bg-slate-900/95 backdrop-blur-2xl border border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
+          {/* Drawer Header */}
+          <div className="p-3.5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="relative">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                  WanderBot Copilot
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    24BAI0226
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Context: <span className="text-emerald-400 font-medium">{selectedDestination?.city_name || 'Global'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setShowChatDrawer(false); setActiveTab('chatbot'); }}
+                title="Expand to Full Studio Tab"
+                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setShowChatDrawer(false)}
+                title="Minimize Chat"
+                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Drawer Message Stream */}
+          <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-900/60 text-xs">
+            {chatMessages.map(msg => (
+              <div
+                key={msg.id}
+                className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[88%] rounded-xl p-3 ${
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium rounded-br-none shadow-sm'
+                      : 'bg-slate-950/80 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
+                  }`}
+                >
+                  {msg.role === 'user' ? (
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                  ) : (
+                    renderFormattedMessage(msg.text)
+                  )}
+                  <div className={`mt-1.5 text-[9px] flex items-center gap-1.5 ${msg.role === 'user' ? 'text-emerald-200 justify-end' : 'text-slate-500'}`}>
+                    <span>{msg.timestamp}</span>
+                    {msg.engine && (
+                      <span className="font-mono text-[8px] px-1 rounded bg-slate-800 text-emerald-400">
+                        {msg.engine === 'GOOGLE_GEMINI_1_5_FLASH' ? 'Gemini' : '3NF'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex gap-2 items-center text-xs text-slate-400">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 rounded-bl-none flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-[10px] text-slate-400 font-mono ml-1.5">Thinking...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick suggestions in drawer */}
+          {chatSuggestedPrompts.length > 0 && (
+            <div className="px-3 py-1.5 border-t border-slate-800/60 bg-slate-950/50 flex items-center gap-1.5 overflow-x-auto text-[10px]">
+              {chatSuggestedPrompts.slice(0, 3).map((prompt, pIdx) => (
+                <button
+                  key={pIdx}
+                  onClick={() => handleSendChatMessage(prompt)}
+                  className="px-2 py-0.5 rounded-full bg-slate-800/80 hover:bg-emerald-500/20 border border-slate-700/60 text-slate-300 hover:text-emerald-300 transition-colors shrink-0 line-clamp-1 max-w-[180px]"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Drawer Input Form */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSendChatMessage(); }}
+            className="p-2.5 border-t border-slate-800 bg-slate-950 flex gap-1.5"
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask about costs, Tirupati, Paris..."
+              disabled={chatLoading}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              type="submit"
+              disabled={chatLoading || !chatInput.trim()}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-bold rounded-lg text-xs transition-all flex items-center gap-1 shadow-sm"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </form>
         </div>
       )}
     </div>
