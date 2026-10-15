@@ -587,6 +587,162 @@ app.post('/api/trips/build-budget', async (req, res) => {
   }
 });
 
+// Mode 2: Reverse Budget Optimizer (Takes Fixed Wallet Budget -> Fits & Generates Optimal Itinerary & Luxury Choices)
+app.post('/api/trips/optimize-budget-to-plan', async (req, res) => {
+  try {
+    const { destination_id, total_budget_inr, group_size, desired_days, attraction_ids } = req.body;
+    const destId = parseInt(destination_id);
+    const budget = parseFloat(total_budget_inr);
+    const travelers = Math.max(1, parseInt(group_size) || 1);
+    let targetDays = Math.max(1, parseInt(desired_days) || 5);
+
+    if (!destId || !budget || budget <= 0) {
+      return res.status(400).json({ error: 'Valid destination_id and positive total_budget_inr are required' });
+    }
+
+    const destination = await prisma.destination.findUnique({
+      where: { destination_id: destId },
+      include: { cost_index: true, attractions: true }
+    });
+
+    if (!destination || !destination.cost_index) {
+      return res.status(404).json({ error: 'Destination or cost index not found' });
+    }
+
+    const idx = destination.cost_index;
+    const rate = Number(idx.exchange_rate_to_inr);
+    const rooms = Math.ceil(travelers / 2);
+
+    // Calculate daily base costs in INR for each luxury tier:
+    const dailyCostBudget = Math.round((Number(idx.accommodation_budget_night) * rooms + (Number(idx.meal_budget_day) + Number(idx.transit_pass_day)) * travelers) * rate);
+    const dailyCostStandard = Math.round((Number(idx.accommodation_standard_night) * rooms + (Number(idx.meal_standard_day) + Number(idx.transit_pass_day)) * travelers) * rate);
+    const dailyCostLuxury = Math.round((Number(idx.accommodation_luxury_night) * rooms + (Number(idx.meal_luxury_day) + Number(idx.transit_pass_day)) * travelers) * rate);
+
+    const availableForPlan = budget * 0.90; // Reserve 10% contingency buffer
+
+    let recommendedStyle = 'BUDGET';
+    let feasibleDays = targetDays;
+    let feasibilityStatus = 'FEASIBLE_COMFORTABLE';
+    let advisoryNotes = [];
+
+    // Check if Luxury fits for targetDays
+    if (availableForPlan >= (dailyCostLuxury * targetDays)) {
+      recommendedStyle = 'LUXURY';
+      advisoryNotes.push(`Your budget of ₹${budget.toLocaleString()} comfortably covers a luxury 5-star experience for ${targetDays} days!`);
+    } else if (availableForPlan >= (dailyCostStandard * targetDays)) {
+      recommendedStyle = 'STANDARD';
+      const gapToLuxury = Math.round((dailyCostLuxury * targetDays * 1.10) - budget);
+      advisoryNotes.push(`Recommended Tier: Standard (3-Star hotels & casual dining). Upgrade to Luxury for +₹${gapToLuxury.toLocaleString()}.`);
+    } else if (availableForPlan >= (dailyCostBudget * targetDays)) {
+      recommendedStyle = 'BUDGET';
+      const gapToStandard = Math.round((dailyCostStandard * targetDays * 1.10) - budget);
+      advisoryNotes.push(`Recommended Tier: Budget (Hostels & street eats). To upgrade to 3-Star comfort, add ₹${gapToStandard.toLocaleString()}.`);
+    } else {
+      feasibilityStatus = 'BUDGET_DEFICIT';
+      feasibleDays = Math.max(1, Math.floor(availableForPlan / Math.max(1, dailyCostBudget)));
+      advisoryNotes.push(`Your budget of ₹${budget.toLocaleString()} can cover up to ${feasibleDays} days in Budget style, rather than ${targetDays} days.`);
+    }
+
+    // Category breakdown
+    const accommodationPerNight = Math.round((recommendedStyle === 'LUXURY' ? Number(idx.accommodation_luxury_night) : (recommendedStyle === 'STANDARD' ? Number(idx.accommodation_standard_night) : Number(idx.accommodation_budget_night))) * rate * rooms);
+    const foodPerDay = Math.round((recommendedStyle === 'LUXURY' ? Number(idx.meal_luxury_day) : (recommendedStyle === 'STANDARD' ? Number(idx.meal_standard_day) : Number(idx.meal_budget_day))) * rate * travelers);
+    const transitPerDay = Math.round(Number(idx.transit_pass_day) * rate * travelers);
+
+    const baseLivingCost = (accommodationPerNight + foodPerDay + transitPerDay) * feasibleDays;
+    let remainingForAttractions = Math.max(0, availableForPlan - baseLivingCost);
+
+    let candidateAttractions = destination.attractions;
+    if (attraction_ids && Array.isArray(attraction_ids) && attraction_ids.length > 0) {
+      candidateAttractions = candidateAttractions.filter(a => attraction_ids.map(Number).includes(a.attraction_id));
+    }
+
+    const sortedAttractions = [...candidateAttractions].sort((a, b) => Number(a.ticket_price_inr) - Number(b.ticket_price_inr));
+
+    let selectedAttractions = [];
+    let deferredAttractions = [];
+    let totalAttractionCost = 0;
+
+    for (const attr of sortedAttractions) {
+      const costForGroup = Math.round(Number(attr.ticket_price_inr) * travelers);
+      if (costForGroup <= remainingForAttractions) {
+        selectedAttractions.push({ ...attr, cost_for_group: costForGroup, status: 'INCLUDED' });
+        remainingForAttractions -= costForGroup;
+        totalAttractionCost += costForGroup;
+      } else {
+        deferredAttractions.push({ ...attr, cost_for_group: costForGroup, status: 'EXCEEDS_BUDGET_CAP' });
+      }
+    }
+
+    const subtotal = (accommodationPerNight * feasibleDays) + (foodPerDay * feasibleDays) + (transitPerDay * feasibleDays) + totalAttractionCost;
+    const bufferAmount = Math.max(Math.round(subtotal * 0.10), Math.round(budget - subtotal));
+    const totalPlanned = subtotal + bufferAmount;
+
+    const categories = await prisma.budgetCategory.findMany();
+    const catMap = Object.fromEntries(categories.map(c => [c.category_code, c]));
+
+    const categoryBreakdown = [
+      {
+        category_code: 'ACCOMMODATION',
+        category_name: catMap['ACCOMMODATION']?.category_name || 'Hotels & Stay',
+        category_id: catMap['ACCOMMODATION']?.category_id,
+        allocated_inr: accommodationPerNight * feasibleDays,
+        daily_rate_inr: accommodationPerNight,
+        calculation_basis: `${feasibleDays} nights @ ₹${accommodationPerNight.toLocaleString()}/night (${recommendedStyle})`
+      },
+      {
+        category_code: 'FOOD',
+        category_name: catMap['FOOD']?.category_name || 'Food & Dining',
+        category_id: catMap['FOOD']?.category_id,
+        allocated_inr: foodPerDay * feasibleDays,
+        daily_rate_inr: foodPerDay,
+        calculation_basis: `${feasibleDays} days dining for ${travelers} traveler(s)`
+      },
+      {
+        category_code: 'TRANSIT',
+        category_name: catMap['TRANSIT']?.category_name || 'Local Transit',
+        category_id: catMap['TRANSIT']?.category_id,
+        allocated_inr: transitPerDay * feasibleDays,
+        daily_rate_inr: transitPerDay,
+        calculation_basis: `Daily passes & metro for ${feasibleDays} days`
+      },
+      {
+        category_code: 'SIGHTSEEING',
+        category_name: catMap['SIGHTSEEING']?.category_name || 'Attractions & Sightseeing',
+        category_id: catMap['SIGHTSEEING']?.category_id,
+        allocated_inr: totalAttractionCost,
+        daily_rate_inr: Math.round(totalAttractionCost / feasibleDays),
+        calculation_basis: `${selectedAttractions.length} attraction tickets fitting within wallet cap`
+      },
+      {
+        category_code: 'BUFFER',
+        category_name: catMap['BUFFER']?.category_name || 'Emergency Buffer',
+        category_id: catMap['BUFFER']?.category_id,
+        allocated_inr: bufferAmount,
+        daily_rate_inr: Math.round(bufferAmount / feasibleDays),
+        calculation_basis: 'Contingency & currency cushion'
+      }
+    ];
+
+    res.json({
+      input_budget_inr: budget,
+      feasibility_status: feasibilityStatus,
+      recommended_travel_style: recommendedStyle,
+      recommended_days: feasibleDays,
+      original_desired_days: targetDays,
+      group_size: travelers,
+      total_planned_budget_inr: totalPlanned,
+      remaining_surplus_inr: Math.max(0, Math.round(budget - totalPlanned)),
+      category_breakdown: categoryBreakdown,
+      selected_attractions: selectedAttractions,
+      deferred_attractions: deferredAttractions,
+      advisory_notes: advisoryNotes
+    });
+  } catch (err) {
+    console.error('Optimize budget to plan error:', err);
+    res.status(500).json({ error: 'Failed to reverse-optimize budget into itinerary plan' });
+  }
+});
+
 // ============================================================================
 // 5. TRIPS & ATOMIC TRANSACTIONS (Section 3 Rubric ACID Compliance)
 // ============================================================================

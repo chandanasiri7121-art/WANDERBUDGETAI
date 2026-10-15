@@ -142,6 +142,28 @@ async function runTests() {
     generatedBudget = data;
   });
 
+  // Test 7b: Mode 2: Reverse Budget Optimizer (Fit Itinerary to Wallet Budget)
+  await test('Test 7b: Reverse Budget Optimizer (Mode 2: Fit Itinerary to Wallet Budget)', async () => {
+    const res = await fetch(`${BASE_URL}/api/trips/optimize-budget-to-plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination_id: tokyoDestId,
+        total_budget_inr: 80000,
+        group_size: 2,
+        desired_days: 5
+      })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.recommended_travel_style || !data.recommended_days) {
+      throw new Error('Reverse optimizer did not recommend travel style or feasible days');
+    }
+    if (!Array.isArray(data.category_breakdown) || data.total_planned_budget_inr > 80000) {
+      throw new Error('Planned budget exceeds user wallet cap');
+    }
+  });
+
   // Test 8: ACID Transaction: Save Trip with Breakdowns & Audit Log
   await test('Test 8: ACID Transaction: Save Planned Trip, Breakdowns & Audit Log', async () => {
     const res = await fetch(`${BASE_URL}/api/trips`, {

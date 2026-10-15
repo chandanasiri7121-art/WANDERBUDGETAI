@@ -56,6 +56,12 @@ export default function App_WanderBudget_24BAI0226() {
   const [savingTrip, setSavingTrip] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
+  // Dual-Mode State: 'PLAN_TO_COST' vs 'BUDGET_TO_PLAN'
+  const [builderMode, setBuilderMode] = useState('PLAN_TO_COST');
+  const [targetWalletBudget, setTargetWalletBudget] = useState(60000);
+  const [optimizedPlanResult, setOptimizedPlanResult] = useState(null);
+  const [optimizingPlan, setOptimizingPlan] = useState(false);
+
   // My Trips State
   const [trips, setTrips] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
@@ -138,12 +144,16 @@ export default function App_WanderBudget_24BAI0226() {
     }
   }, [activeTab, token]);
 
-  // Recalculate dynamic budget whenever builder parameters change
+  // Recalculate dynamic budget or reverse-optimize whenever builder parameters change
   useEffect(() => {
     if (builderDestinationId && activeTab === 'builder') {
-      calculateDynamicBudget();
+      if (builderMode === 'PLAN_TO_COST') {
+        calculateDynamicBudget();
+      } else {
+        handleOptimizeBudgetToPlan();
+      }
     }
-  }, [builderDestinationId, durationDays, travelStyle, groupSize, selectedAttractionIds, activeTab]);
+  }, [builderDestinationId, durationDays, travelStyle, groupSize, selectedAttractionIds, builderMode, targetWalletBudget, activeTab]);
 
   // Update selected destination object when builderDestinationId changes
   useEffect(() => {
@@ -194,7 +204,7 @@ export default function App_WanderBudget_24BAI0226() {
     }
   };
 
-  // API Call: Calculate Dynamic Budget
+  // API Call: Calculate Dynamic Budget (Mode 1: Plan-to-Cost)
   const calculateDynamicBudget = async () => {
     try {
       const res = await fetch('/api/trips/build-budget', {
@@ -215,6 +225,34 @@ export default function App_WanderBudget_24BAI0226() {
       }
     } catch (err) {
       console.error('Calculate budget error:', err);
+    }
+  };
+
+  // API Call: Reverse Budget Optimizer (Mode 2: Budget-to-Plan)
+  const handleOptimizeBudgetToPlan = async () => {
+    if (!builderDestinationId || !targetWalletBudget) return;
+    try {
+      setOptimizingPlan(true);
+      const res = await fetch('/api/trips/optimize-budget-to-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination_id: builderDestinationId,
+          total_budget_inr: parseFloat(targetWalletBudget),
+          group_size: groupSize,
+          desired_days: durationDays,
+          attraction_ids: selectedAttractionIds
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setOptimizedPlanResult(data);
+      }
+    } catch (err) {
+      console.error('Optimize budget error:', err);
+    } finally {
+      setOptimizingPlan(false);
     }
   };
 
@@ -827,7 +865,7 @@ export default function App_WanderBudget_24BAI0226() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: INTERACTIVE TRIP BUDGET BUILDER & WHAT-IF ENGINE */}
+        {/* TAB 2: BIDIRECTIONAL TRIP BUDGET BUILDER & WHAT-IF ENGINE */}
         {/* ========================================================================= */}
         {activeTab === 'builder' && (
           <div className="space-y-6 animate-fadeIn">
@@ -838,287 +876,640 @@ export default function App_WanderBudget_24BAI0226() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Interactive Input Controls (5 Cols) */}
-              <div className="lg:col-span-5 space-y-5">
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-5 shadow-xl">
-                  <div className="border-b border-slate-800 pb-3">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Compass className="w-5 h-5 text-emerald-400" />
-                      Trip Parameters & Preferences
-                    </h3>
-                    <p className="text-xs text-slate-400">Configure your itinerary parameters to calculate dynamic budget</p>
-                  </div>
+            {/* DUAL-MODE SWITCHER (Plan-to-Cost vs Budget-to-Plan) */}
+            <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-xl max-w-2xl mx-auto">
+              <button
+                type="button"
+                onClick={() => setBuilderMode('PLAN_TO_COST')}
+                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  builderMode === 'PLAN_TO_COST'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Compass className="w-4 h-4" />
+                Mode 1: Plan-to-Cost (Estimate Dream Plan Cost)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBuilderMode('BUDGET_TO_PLAN')}
+                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  builderMode === 'BUDGET_TO_PLAN'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                Mode 2: Budget-to-Plan (Fit Itinerary to Wallet)
+              </button>
+            </div>
 
-                  {/* 1. Destination Dropdown */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                      Target Destination
-                    </label>
-                    <select
-                      value={builderDestinationId}
-                      onChange={(e) => setBuilderDestinationId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
-                    >
-                      {destinations.map(d => (
-                        <option key={d.destination_id} value={d.destination_id}>
-                          {d.city_name}, {d.country_name} ({d.currency_code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            {/* MODE 1: FORWARD PLAN-TO-COST BUILDER */}
+            {builderMode === 'PLAN_TO_COST' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column: Interactive Input Controls (5 Cols) */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-5 shadow-xl">
+                    <div className="border-b border-slate-800 pb-3">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold font-mono mb-1">
+                        Mode 1 • Forward Plan Estimator
+                      </div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Compass className="w-5 h-5 text-emerald-400" />
+                        Trip Plan & Luxury Preference
+                      </h3>
+                      <p className="text-xs text-slate-400">Tell us where you want to go, stay duration, and luxury standard</p>
+                    </div>
 
-                  {/* 2. Stay Duration Slider */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                        Stay Duration (Days)
-                      </span>
-                      <span className="font-mono font-bold text-sm text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-lg border border-sky-500/20">
-                        {durationDays} Days ({durationDays - 1} Nights)
-                      </span>
+                    {/* 1. Destination Dropdown */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                        Target Destination
+                      </label>
+                      <select
+                        value={builderDestinationId}
+                        onChange={(e) => setBuilderDestinationId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
+                      >
+                        {destinations.map(d => (
+                          <option key={d.destination_id} value={d.destination_id}>
+                            {d.city_name}, {d.country_name} ({d.currency_code})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="21"
-                      value={durationDays}
-                      onChange={(e) => setDurationDays(parseInt(e.target.value))}
-                      className="w-full accent-sky-400 cursor-pointer h-2 bg-slate-800 rounded-lg"
-                    />
-                    <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                      <span>1 Day</span>
-                      <span>7 Days (1 Wk)</span>
-                      <span>14 Days (2 Wks)</span>
-                      <span>21 Days</span>
-                    </div>
-                  </div>
 
-                  {/* 3. Travel Style Radio Selector */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Travel Style Tier
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'BUDGET', label: 'Budget', icon: '🎒', desc: 'Hostels & Street Eats' },
-                        { id: 'STANDARD', label: 'Comfort', icon: '🏨', desc: '3-Star & Casual Dining' },
-                        { id: 'LUXURY', label: 'Luxury', icon: '👑', desc: '5-Star & Fine Dining' }
-                      ].map(style => (
-                        <button
-                          key={style.id}
-                          type="button"
-                          onClick={() => setTravelStyle(style.id)}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            travelStyle === style.id
-                              ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-md'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="text-lg">{style.icon}</div>
-                          <div className="font-bold text-xs mt-1 text-slate-200">{style.label}</div>
-                          <div className="text-[10px] text-slate-400">{style.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 4. Group Size */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-teal-400" />
-                        Number of Travelers
-                      </span>
-                      <span className="font-mono font-bold text-sm text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
-                        {groupSize} {groupSize === 1 ? 'Solo' : 'Travelers'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {[1, 2, 3, 4, 6].map(num => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => setGroupSize(num)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                            groupSize === num
-                              ? 'bg-teal-500 text-slate-950 border-teal-400 font-extrabold'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          {num} {num === 1 ? 'Solo' : 'P'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 5. Select Attractions / Places */}
-                  {selectedDestination && selectedDestination.attractions && selectedDestination.attractions.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                    {/* 2. Stay Duration Slider */}
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                          <Camera className="w-3.5 h-3.5 text-violet-400" />
-                          Places & Attractions to Visit ({selectedAttractionIds.length})
+                          <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                          Stay Duration (Days)
+                        </span>
+                        <span className="font-mono font-bold text-sm text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-lg border border-sky-500/20">
+                          {durationDays} Days ({durationDays - 1} Nights)
                         </span>
                       </div>
-                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                        {selectedDestination.attractions.map(attr => {
-                          const isSelected = selectedAttractionIds.includes(attr.attraction_id);
-                          return (
-                            <div
-                              key={attr.attraction_id}
-                              onClick={() => toggleAttraction(attr.attraction_id)}
-                              className={`p-2 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-violet-500/15 border-violet-500 text-slate-200'
-                                  : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
-                                  isSelected ? 'bg-violet-500 text-white' : 'border border-slate-700'
-                                }`}>
-                                  {isSelected && <Check className="w-3 h-3" />}
-                                </div>
-                                <span className="font-medium text-slate-300">{attr.name}</span>
-                              </div>
-                              <span className="font-mono text-violet-300 text-[11px]">
-                                {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
-                              </span>
-                            </div>
-                          );
-                        })}
+                      <input
+                        type="range"
+                        min="1"
+                        max="21"
+                        value={durationDays}
+                        onChange={(e) => setDurationDays(parseInt(e.target.value))}
+                        className="w-full accent-sky-400 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                        <span>1 Day</span>
+                        <span>7 Days (1 Wk)</span>
+                        <span>14 Days (2 Wks)</span>
+                        <span>21 Days</span>
                       </div>
+                    </div>
+
+                    {/* 3. Travel Style Tier Selector */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-slate-300">
+                        What Type of Luxury Do You Want?
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'BUDGET', label: 'Budget', icon: '🎒', desc: 'Hostels & Street Eats' },
+                          { id: 'STANDARD', label: 'Comfort', icon: '🏨', desc: '3-Star & Casual Dining' },
+                          { id: 'LUXURY', label: 'Luxury', icon: '👑', desc: '5-Star & Fine Dining' }
+                        ].map(style => (
+                          <button
+                            key={style.id}
+                            type="button"
+                            onClick={() => setTravelStyle(style.id)}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              travelStyle === style.id
+                                ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-md'
+                                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="text-lg">{style.icon}</div>
+                            <div className="font-bold text-xs mt-1 text-slate-200">{style.label}</div>
+                            <div className="text-[10px] text-slate-400">{style.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 4. Group Size */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-teal-400" />
+                          Number of Travelers
+                        </span>
+                        <span className="font-mono font-bold text-sm text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
+                          {groupSize} {groupSize === 1 ? 'Solo' : 'Travelers'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 6].map(num => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setGroupSize(num)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                              groupSize === num
+                                ? 'bg-teal-500 text-slate-950 border-teal-400 font-extrabold'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            {num} {num === 1 ? 'Solo' : 'P'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 5. Select Attractions / Places */}
+                    {selectedDestination && selectedDestination.attractions && selectedDestination.attractions.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                            <Camera className="w-3.5 h-3.5 text-violet-400" />
+                            Planned Places to Visit ({selectedAttractionIds.length})
+                          </span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                          {selectedDestination.attractions.map(attr => {
+                            const isSelected = selectedAttractionIds.includes(attr.attraction_id);
+                            return (
+                              <div
+                                key={attr.attraction_id}
+                                onClick={() => toggleAttraction(attr.attraction_id)}
+                                className={`p-2 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'bg-violet-500/15 border-violet-500 text-slate-200'
+                                    : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
+                                    isSelected ? 'bg-violet-500 text-white' : 'border border-slate-700'
+                                  }`}>
+                                    {isSelected && <Check className="w-3 h-3" />}
+                                  </div>
+                                  <span className="font-medium text-slate-300">{attr.name}</span>
+                                </div>
+                                <span className="font-mono text-violet-300 text-[11px]">
+                                  {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Itinerary Button */}
+                    <button
+                      onClick={handleSaveTrip}
+                      disabled={savingTrip || !calculatedBudget}
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 disabled:opacity-50 transition-all shadow-xl shadow-emerald-500/20"
+                    >
+                      {savingTrip ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving Trip in Transaction...
+                        </>
+                      ) : (
+                        <>
+                          <PlusCircle className="w-4 h-4" />
+                          Save Itinerary & Budget (ACID Transaction)
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Column: Calculated Dynamic Budget & What-If Visualizer (7 Cols) */}
+                <div className="lg:col-span-7 space-y-5">
+                  {calculatedBudget ? (
+                    <>
+                      {/* Grand Total Budget Banner */}
+                      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 rounded-2xl border border-emerald-500/30 p-6 shadow-2xl relative overflow-hidden">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <span className="text-xs uppercase font-mono tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                              <Activity className="w-3.5 h-3.5" />
+                              Estimated Plan Cost • {durationDays} Days • {travelStyle}
+                            </span>
+                            <div className="text-3xl sm:text-4xl font-extrabold text-white mt-1">
+                              ₹{calculatedBudget.total_budget_inr.toLocaleString()}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Per Traveler: <span className="font-mono font-bold text-emerald-300">₹{calculatedBudget.per_person_inr.toLocaleString()}</span> ({groupSize} people)
+                            </p>
+                          </div>
+
+                          <div className="bg-slate-950/80 px-4 py-3 rounded-xl border border-slate-800 text-right">
+                            <div className="text-[10px] text-slate-400 uppercase font-mono">Calculated By</div>
+                            <div className="text-xs font-bold text-slate-200">PostgreSQL SP</div>
+                            <div className="text-[10px] text-emerald-400 font-mono">sp_calculate_trip_budget</div>
+                          </div>
+                        </div>
+
+                        {/* What-If Comparisons Bar */}
+                        <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-slate-800/80 text-xs">
+                          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <div className="text-slate-400 text-[10px]">What-If Budget Style</div>
+                            <div className="font-mono font-bold text-slate-200 mt-0.5">
+                              ₹{calculatedBudget.what_if_insights.budget_style_cost.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-emerald-400">
+                              Save ₹{calculatedBudget.what_if_insights.budget_style_savings.toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <div className="text-slate-400 text-[10px]">What-If Luxury Style</div>
+                            <div className="font-mono font-bold text-violet-300 mt-0.5">
+                              ₹{calculatedBudget.what_if_insights.luxury_style_cost.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-violet-400">
+                              +₹{calculatedBudget.what_if_insights.luxury_upgrade_cost.toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                            <div className="text-slate-400 text-[10px]">What-If -1 Day</div>
+                            <div className="font-mono font-bold text-amber-300 mt-0.5">
+                              -₹{calculatedBudget.what_if_insights.minus_one_day_savings.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-amber-400">
+                              Marginal Saving
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Category Breakdown & Visual Chart */}
+                      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                            <PieIcon className="w-4 h-4 text-emerald-400" />
+                            Category Cost Allocation Breakdown
+                          </h4>
+                          <span className="text-[10px] font-mono text-slate-400">NORMALIZED 3NF SCHEMA</span>
+                        </div>
+
+                        {/* Recharts Pie Chart & List Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                          <div className="md:col-span-5 h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={calculatedBudget.category_breakdown}
+                                  dataKey="allocated_inr"
+                                  nameKey="category_name"
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={40}
+                                  outerRadius={70}
+                                  paddingAngle={3}
+                                >
+                                  {calculatedBudget.category_breakdown.map((entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={CATEGORY_COLORS[entry.category_code] || '#94a3b8'}
+                                    />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip
+                                  formatter={(val) => [`₹${Number(val).toLocaleString()}`, 'Allocated']}
+                                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Category List */}
+                          <div className="md:col-span-7 space-y-2 text-xs">
+                            {calculatedBudget.category_breakdown.map(item => (
+                              <div
+                                key={item.category_code}
+                                className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: CATEGORY_COLORS[item.category_code] || '#94a3b8' }}
+                                  />
+                                  <span className="font-medium text-slate-200">{item.category_name}</span>
+                                </div>
+
+                                <div className="text-right">
+                                  <div className="font-mono font-bold text-slate-200">
+                                    ₹{item.allocated_inr.toLocaleString()}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    {Math.round((item.allocated_inr / calculatedBudget.total_budget_inr) * 100)}% of budget
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-12 text-center text-slate-400">
+                      <Compass className="w-10 h-10 mx-auto text-slate-600 mb-2 animate-bounce" />
+                      <p>Adjust parameters on the left to see live dynamic budget calculation.</p>
                     </div>
                   )}
-
-                  {/* Save Itinerary Button */}
-                  <button
-                    onClick={handleSaveTrip}
-                    disabled={savingTrip || !calculatedBudget}
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 disabled:opacity-50 transition-all shadow-xl shadow-emerald-500/20"
-                  >
-                    {savingTrip ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Saving Trip in Transaction...
-                      </>
-                    ) : (
-                      <>
-                        <PlusCircle className="w-4 h-4" />
-                        Save Itinerary & Budget (ACID Transaction)
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Right Column: Calculated Dynamic Budget & What-If Visualizer (7 Cols) */}
-              <div className="lg:col-span-7 space-y-5">
-                {calculatedBudget ? (
-                  <>
-                    {/* Grand Total Budget Banner */}
-                    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 rounded-2xl border border-emerald-500/30 p-6 shadow-2xl relative overflow-hidden">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <span className="text-xs uppercase font-mono tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <Activity className="w-3.5 h-3.5" />
-                            Dynamic Trip Estimate • {durationDays} Days • {travelStyle}
-                          </span>
-                          <div className="text-3xl sm:text-4xl font-extrabold text-white mt-1">
-                            ₹{calculatedBudget.total_budget_inr.toLocaleString()}
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">
-                            Per Traveler: <span className="font-mono font-bold text-emerald-300">₹{calculatedBudget.per_person_inr.toLocaleString()}</span> ({groupSize} people)
-                          </p>
-                        </div>
-
-                        <div className="bg-slate-950/80 px-4 py-3 rounded-xl border border-slate-800 text-right">
-                          <div className="text-[10px] text-slate-400 uppercase font-mono">Calculated By</div>
-                          <div className="text-xs font-bold text-slate-200">PostgreSQL SP</div>
-                          <div className="text-[10px] text-emerald-400 font-mono">sp_calculate_trip_budget</div>
-                        </div>
+            {/* MODE 2: REVERSE BUDGET-TO-PLAN OPTIMIZER */}
+            {builderMode === 'BUDGET_TO_PLAN' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column: Fixed Wallet Budget & Desired Scope (5 Cols) */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-5 shadow-xl">
+                    <div className="border-b border-slate-800 pb-3">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-400 text-[11px] font-semibold font-mono mb-1">
+                        Mode 2 • Reverse Budget-to-Plan Fitter
                       </div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-teal-400" />
+                        Enter Your Wallet Budget
+                      </h3>
+                      <p className="text-xs text-slate-400">Tell us your budget, and AI engineers the optimal plan & luxury standard</p>
+                    </div>
 
-                      {/* What-If Comparisons Bar */}
-                      <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-slate-800/80 text-xs">
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                          <div className="text-slate-400 text-[10px]">What-If Budget Style</div>
-                          <div className="font-mono font-bold text-slate-200 mt-0.5">
-                            ₹{calculatedBudget.what_if_insights.budget_style_cost.toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-emerald-400">
-                            Save ₹{calculatedBudget.what_if_insights.budget_style_savings.toLocaleString()}
-                          </div>
-                        </div>
+                    {/* 1. Destination Dropdown */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                        Target Destination
+                      </label>
+                      <select
+                        value={builderDestinationId}
+                        onChange={(e) => setBuilderDestinationId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-teal-500 transition-colors"
+                      >
+                        {destinations.map(d => (
+                          <option key={d.destination_id} value={d.destination_id}>
+                            {d.city_name}, {d.country_name} ({d.currency_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                          <div className="text-slate-400 text-[10px]">What-If Luxury Style</div>
-                          <div className="font-mono font-bold text-violet-300 mt-0.5">
-                            ₹{calculatedBudget.what_if_insights.luxury_style_cost.toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-violet-400">
-                            +₹{calculatedBudget.what_if_insights.luxury_upgrade_cost.toLocaleString()}
-                          </div>
-                        </div>
-
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                          <div className="text-slate-400 text-[10px]">What-If -1 Day</div>
-                          <div className="font-mono font-bold text-amber-300 mt-0.5">
-                            -₹{calculatedBudget.what_if_insights.minus_one_day_savings.toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-amber-400">
-                            Marginal Saving
-                          </div>
-                        </div>
+                    {/* 2. Wallet Budget Input with Quick Presets */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-teal-400" />
+                          Total Available Budget (INR)
+                        </label>
+                        <span className="font-mono font-bold text-sm text-teal-300">
+                          ₹{Number(targetWalletBudget || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="5000"
+                        step="5000"
+                        value={targetWalletBudget}
+                        onChange={(e) => setTargetWalletBudget(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 font-mono focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 50000"
+                      />
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {[25000, 50000, 75000, 100000, 150000].map(amt => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setTargetWalletBudget(amt)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                              targetWalletBudget === amt
+                                ? 'bg-teal-500 text-slate-950 border-teal-400 font-bold'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            ₹{(amt / 1000)}k
+                          </button>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Category Breakdown & Visual Chart */}
-                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-white text-sm flex items-center gap-2">
-                          <PieIcon className="w-4 h-4 text-emerald-400" />
-                          Category Cost Allocation Breakdown
-                        </h4>
-                        <span className="text-[10px] font-mono text-slate-400">NORMALIZED 3NF SCHEMA</span>
+                    {/* 3. Desired Days to Aim For */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                          Target Duration Aimed (Days)
+                        </span>
+                        <span className="font-mono font-bold text-sm text-sky-400">
+                          {durationDays} Days
+                        </span>
                       </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="14"
+                        value={durationDays}
+                        onChange={(e) => setDurationDays(parseInt(e.target.value))}
+                        className="w-full accent-sky-400 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                      />
+                      <div className="text-[10px] text-slate-500">
+                        The AI optimizer will verify if your budget covers this duration, or suggest feasible days.
+                      </div>
+                    </div>
 
-                      {/* Recharts Pie Chart & List Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                        <div className="md:col-span-5 h-48">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={calculatedBudget.category_breakdown}
-                                dataKey="allocated_inr"
-                                nameKey="category_name"
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={40}
-                                outerRadius={70}
-                                paddingAngle={3}
-                              >
-                                {calculatedBudget.category_breakdown.map((entry, index) => (
-                                  <Cell
-                                    key={`cell-${index}`}
-                                    fill={CATEGORY_COLORS[entry.category_code] || '#94a3b8'}
-                                  />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip
-                                formatter={(val) => [`₹${Number(val).toLocaleString()}`, 'Allocated']}
-                                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
+                    {/* 4. Number of Travelers */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-teal-400" />
+                          Travelers Sharing Budget
+                        </span>
+                        <span className="font-mono font-bold text-sm text-teal-400">
+                          {groupSize} Person(s)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4].map(num => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setGroupSize(num)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                              groupSize === num
+                                ? 'bg-teal-500 text-slate-950 border-teal-400 font-extrabold'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            {num} {num === 1 ? 'Solo' : 'P'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Save Optimized Itinerary Button */}
+                    <button
+                      onClick={async () => {
+                        if (!optimizedPlanResult || !selectedDestination) return;
+                        try {
+                          setSavingTrip(true);
+                          const tripTitle = `${selectedDestination.city_name} ${optimizedPlanResult.recommended_days}-Day ${optimizedPlanResult.recommended_travel_style} (Budget Fit)`;
+                          const res = await fetch('/api/trips', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                              title: tripTitle,
+                              destination_id: builderDestinationId,
+                              duration_days: optimizedPlanResult.recommended_days,
+                              travel_style: optimizedPlanResult.recommended_travel_style,
+                              group_size: groupSize,
+                              total_budget_inr: optimizedPlanResult.total_planned_budget_inr,
+                              breakdowns: optimizedPlanResult.category_breakdown,
+                              attraction_ids: optimizedPlanResult.selected_attractions?.map(a => a.attraction_id) || []
+                            })
+                          });
+                          if (res.ok) {
+                            setSaveSuccessMsg(`Trip "${tripTitle}" saved with reverse-engineered budget of ₹${optimizedPlanResult.total_planned_budget_inr.toLocaleString()}!`);
+                            setTimeout(() => setSaveSuccessMsg(''), 4000);
+                            fetchTrips();
+                          }
+                        } catch (err) {
+                          console.error('Save reverse trip error:', err);
+                        } finally {
+                          setSavingTrip(false);
+                        }
+                      }}
+                      disabled={savingTrip || !optimizedPlanResult}
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 disabled:opacity-50 transition-all shadow-xl shadow-teal-500/20"
+                    >
+                      {savingTrip ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving Reverse Plan...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Save Reverse-Engineered Itinerary Plan
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Column: Reverse-Engineered Itinerary & Recommendations (7 Cols) */}
+                <div className="lg:col-span-7 space-y-5">
+                  {optimizedPlanResult ? (
+                    <>
+                      {/* Optimization Header Banner */}
+                      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/40 rounded-2xl border border-teal-500/30 p-6 shadow-2xl space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <span className="text-xs uppercase font-mono tracking-wider text-teal-400 font-semibold flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Reverse Optimization Result • Budget Fit
+                            </span>
+                            <div className="text-3xl font-extrabold text-white mt-1">
+                              ₹{optimizedPlanResult.total_planned_budget_inr.toLocaleString()}
+                              <span className="text-sm font-normal text-slate-400 ml-2">
+                                of ₹{optimizedPlanResult.input_budget_inr.toLocaleString()} wallet cap
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="px-2.5 py-1 rounded-lg bg-teal-500/20 text-teal-300 font-bold text-xs border border-teal-500/30">
+                                Recommended Tier: {optimizedPlanResult.recommended_travel_style}
+                              </span>
+                              <span className="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 font-bold text-xs border border-sky-500/30">
+                                Affordable Stay: {optimizedPlanResult.recommended_days} Days
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-950/80 px-4 py-3 rounded-xl border border-slate-800 text-right">
+                            <div className="text-[10px] text-slate-400 uppercase font-mono">Unused Surplus</div>
+                            <div className="text-lg font-bold text-emerald-400 font-mono">
+                              ₹{optimizedPlanResult.remaining_surplus_inr.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono">Extra Cushion</div>
+                          </div>
                         </div>
 
-                        {/* Category List */}
-                        <div className="md:col-span-7 space-y-2 text-xs">
-                          {calculatedBudget.category_breakdown.map(item => (
+                        {/* Advisory Notes Box */}
+                        {optimizedPlanResult.advisory_notes && optimizedPlanResult.advisory_notes.length > 0 && (
+                          <div className="bg-slate-950/70 p-3.5 rounded-xl border border-teal-500/20 text-xs text-slate-300 space-y-1">
+                            {optimizedPlanResult.advisory_notes.map((note, idx) => (
+                              <div key={idx} className="flex items-start gap-2">
+                                <Info className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                                <span>{note}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Attractions Fitted into Wallet */}
+                      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-violet-400" />
+                            Attractions Fitted Within Your Wallet Cap
+                          </h4>
+                          <span className="text-[10px] font-mono text-emerald-400">
+                            {optimizedPlanResult.selected_attractions?.length || 0} Afforded
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          {optimizedPlanResult.selected_attractions?.map(attr => (
+                            <div
+                              key={attr.attraction_id}
+                              className="bg-slate-950/70 p-2.5 rounded-xl border border-emerald-500/20 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                <span className="font-medium text-slate-200">{attr.name}</span>
+                              </div>
+                              <span className="font-mono text-emerald-300 font-bold">
+                                ₹{attr.cost_for_group.toLocaleString()} ({groupSize} travelers)
+                              </span>
+                            </div>
+                          ))}
+
+                          {optimizedPlanResult.deferred_attractions?.map(attr => (
+                            <div
+                              key={attr.attraction_id}
+                              className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60 opacity-60 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                <span className="text-slate-400 line-through">{attr.name}</span>
+                              </div>
+                              <span className="text-[10px] text-amber-400 font-mono">
+                                Deferred (+₹{attr.cost_for_group.toLocaleString()})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Category Allocations */}
+                      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
+                        <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                          <PieIcon className="w-4 h-4 text-teal-400" />
+                          Reverse-Optimized Category Envelopes
+                        </h4>
+
+                        <div className="space-y-2 text-xs">
+                          {optimizedPlanResult.category_breakdown?.map(item => (
                             <div
                               key={item.category_code}
                               className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between"
@@ -1128,31 +1519,29 @@ export default function App_WanderBudget_24BAI0226() {
                                   className="w-3 h-3 rounded-full"
                                   style={{ backgroundColor: CATEGORY_COLORS[item.category_code] || '#94a3b8' }}
                                 />
-                                <span className="font-medium text-slate-200">{item.category_name}</span>
+                                <div>
+                                  <div className="font-medium text-slate-200">{item.category_name}</div>
+                                  <div className="text-[10px] text-slate-500">{item.calculation_basis}</div>
+                                </div>
                               </div>
 
-                              <div className="text-right">
-                                <div className="font-mono font-bold text-slate-200">
-                                  ₹{item.allocated_inr.toLocaleString()}
-                                </div>
-                                <div className="text-[10px] text-slate-500">
-                                  {Math.round((item.allocated_inr / calculatedBudget.total_budget_inr) * 100)}% of budget
-                                </div>
+                              <div className="font-mono font-bold text-slate-200 text-right">
+                                ₹{item.allocated_inr.toLocaleString()}
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
+                    </>
+                  ) : (
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-12 text-center text-slate-400">
+                      <DollarSign className="w-10 h-10 mx-auto text-slate-600 mb-2 animate-bounce" />
+                      <p>Enter your budget on the left to reverse-engineer your itinerary plan.</p>
                     </div>
-                  </>
-                ) : (
-                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-12 text-center text-slate-400">
-                    <Compass className="w-10 h-10 mx-auto text-slate-600 mb-2 animate-bounce" />
-                    <p>Adjust parameters on the left to see live dynamic budget calculation.</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
