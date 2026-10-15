@@ -1095,6 +1095,348 @@ app.get('/api/admin/query-benchmarks', authenticate_24BAI0226_SaiSiriChandana, r
 });
 
 // ============================================================================
+// STANDOUT FEATURE 5: WHAT-IF CAREER SIMULATOR & SHARED-SKILL OPTIMIZER
+// ============================================================================
+app.post('/api/simulator/calculate', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const { version_id, role_version_id, simulated_proficiencies, simulated_skills } = req.body;
+    const parsedVersionId = parseInt(role_version_id || version_id || 2, 10);
+
+    const version = await prisma_24BAI0226_SaiSiriChandana.jobRoleVersion.findUnique({
+      where: { version_id: parsedVersionId },
+      include: {
+        job_role: true,
+        requirements: {
+          include: {
+            skill: {
+              include: {
+                prerequisites: { include: { prerequisite_skill: true } },
+                resources: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!version) return res.status(404).json({ error: 'Target version not found.' });
+
+    // Baseline assessment proficiencies (preserving actual assessment evidence)
+    const attempts = await prisma_24BAI0226_SaiSiriChandana.assessmentAttempt.findMany({
+      where: { user_id: req.user.user_id },
+      orderBy: { attempted_at: 'desc' },
+    });
+    const baselineMap = {};
+    attempts.forEach((a) => {
+      if (baselineMap[a.skill_id] === undefined) {
+        baselineMap[a.skill_id] = a.assessed_proficiency;
+      }
+    });
+
+    // Parse simulated inputs whether provided as an object or array
+    const simMap = {};
+    if (Array.isArray(simulated_skills)) {
+      simulated_skills.forEach((s) => {
+        simMap[s.skill_id] = s.simulated_level !== undefined ? s.simulated_level : s.simulated_proficiency;
+      });
+    } else if (Array.isArray(simulated_proficiencies)) {
+      simulated_proficiencies.forEach((s) => {
+        simMap[s.skill_id] = s.simulated_level !== undefined ? s.simulated_level : s.simulated_proficiency;
+      });
+    } else if (simulated_proficiencies && typeof simulated_proficiencies === 'object') {
+      Object.entries(simulated_proficiencies).forEach(([k, v]) => {
+        simMap[k] = v;
+      });
+    }
+
+    let baselineMet = 0;
+    let simulatedMet = 0;
+    let baselineTotalGaps = 0;
+    let simulatedTotalGaps = 0;
+    let totalEstMinutes = 0;
+    const prerequisiteAlerts = [];
+
+    const skillComparison = version.requirements.map((reqItem) => {
+      const sId = reqItem.skill_id;
+      const baseProf = baselineMap[sId] || 0;
+      const simProf = simMap[sId] !== undefined ? parseInt(simMap[sId], 10) : baseProf;
+
+      const baseGap = Math.max(reqItem.required_proficiency - baseProf, 0);
+      const simGap = Math.max(reqItem.required_proficiency - simProf, 0);
+
+      if (baseGap === 0) baselineMet++;
+      if (simGap === 0) simulatedMet++;
+
+      baselineTotalGaps += baseGap;
+      simulatedTotalGaps += simGap;
+
+      const perLevelMinutes = reqItem.skill.resources[0]?.est_minutes || 60;
+
+      // Prerequisite Guardrails
+      if (simProf > baseProf) {
+        reqItem.skill.prerequisites.forEach((p) => {
+          const prereqBase = baselineMap[p.prerequisite_skill_id] || 0;
+          const prereqSim = simMap[p.prerequisite_skill_id] !== undefined
+            ? parseInt(simMap[p.prerequisite_skill_id], 10)
+            : prereqBase;
+          if (prereqSim < 3) {
+            prerequisiteAlerts.push({
+              skill_name: reqItem.skill.skill_name,
+              prerequisite_skill_name: p.prerequisite_skill.skill_name,
+              prerequisite_name: p.prerequisite_skill.skill_name,
+              simulated_level: simProf,
+              prerequisite_level: prereqSim,
+              min_level: 3,
+            });
+          }
+        });
+
+        totalEstMinutes += (simProf - baseProf) * perLevelMinutes;
+      }
+
+      return {
+        skill_id: sId,
+        skill_name: reqItem.skill.skill_name,
+        skill_code: reqItem.skill.skill_code,
+        category: reqItem.skill.category,
+        required_level: reqItem.required_proficiency,
+        required_proficiency: reqItem.required_proficiency,
+        importance_weight: reqItem.importance_weight,
+        baseline_level: baseProf,
+        baseline_proficiency: baseProf,
+        simulated_level: simProf,
+        simulated_proficiency: simProf,
+        baseline_gap: baseGap,
+        simulated_gap: simGap,
+        level_delta: Math.max(simProf - baseProf, 0),
+        estimated_hours: Math.round(((Math.max(simProf - baseProf, 0)) * perLevelMinutes) / 60),
+        gap_reduced: baseGap - simGap,
+      };
+    });
+
+    const totalReqs = version.requirements.length || 1;
+    const baselineReadiness = parseFloat(((baselineMet / totalReqs) * 100).toFixed(2));
+    const simulatedReadiness = parseFloat(((simulatedMet / totalReqs) * 100).toFixed(2));
+    const gapReductionPoints = Math.max(baselineTotalGaps - simulatedTotalGaps, 0);
+    const gapReductionPct = baselineTotalGaps > 0
+      ? parseFloat(((gapReductionPoints / baselineTotalGaps) * 100).toFixed(2))
+      : 0;
+
+    // Shared-Skill Multi-Role Leverage
+    const otherRoles = await prisma_24BAI0226_SaiSiriChandana.jobRole.findMany({
+      include: {
+        versions: {
+          where: { is_active: true },
+          include: { requirements: { include: { skill: true } } },
+        },
+      },
+    });
+
+    const multiRoleImpact = otherRoles
+      .map((role) => {
+        const activeV = role.versions[0];
+        if (!activeV) return null;
+
+        let rBaseMet = 0;
+        let rSimMet = 0;
+        let rGapsReduced = 0;
+
+        activeV.requirements.forEach((rq) => {
+          const bProf = baselineMap[rq.skill_id] || 0;
+          const sProf = simMap[rq.skill_id] !== undefined ? parseInt(simMap[rq.skill_id], 10) : bProf;
+
+          const bGap = Math.max(rq.required_proficiency - bProf, 0);
+          const sGap = Math.max(rq.required_proficiency - sProf, 0);
+
+          if (bGap === 0) rBaseMet++;
+          if (sGap === 0) rSimMet++;
+          rGapsReduced += Math.max(bGap - sGap, 0);
+        });
+
+        const totalR = activeV.requirements.length || 1;
+        const bPct = parseFloat(((rBaseMet / totalR) * 100).toFixed(2));
+        const sPct = parseFloat(((rSimMet / totalR) * 100).toFixed(2));
+
+        return {
+          role_id: role.job_role_id,
+          role_title: role.title,
+          version_number: activeV.version_number,
+          baseline_readiness: bPct,
+          baseline_readiness_pct: bPct,
+          simulated_readiness: sPct,
+          simulated_readiness_pct: sPct,
+          readiness_gain: parseFloat((sPct - bPct).toFixed(2)),
+          readiness_gain_pct: parseFloat((sPct - bPct).toFixed(2)),
+          gaps_reduced: rGapsReduced,
+          matched_skills_count: activeV.requirements.length,
+        };
+      })
+      .filter(Boolean);
+
+    const estStudyHours = parseFloat((totalEstMinutes / 60).toFixed(1));
+
+    res.json({
+      role_title: version.job_role.title,
+      version_label: version.version_label,
+      version_number: version.version_number,
+      baseline_readiness_pct: baselineReadiness,
+      simulated_readiness_pct: simulatedReadiness,
+      readiness_gain_pct: parseFloat((simulatedReadiness - baselineReadiness).toFixed(2)),
+      baseline_total_gaps: baselineTotalGaps,
+      total_baseline_gap_levels: baselineTotalGaps,
+      simulated_total_gaps: simulatedTotalGaps,
+      total_simulated_gap_levels: simulatedTotalGaps,
+      gap_reduction_points: gapReductionPoints,
+      gap_reduction_pct: gapReductionPct,
+      estimated_learning_hours: estStudyHours,
+      total_estimated_study_hours: estStudyHours,
+      prerequisite_alerts: prerequisiteAlerts,
+      skills: skillComparison,
+      skill_comparison: skillComparison,
+      multi_role_impact: multiRoleImpact,
+      cross_role_impact: multiRoleImpact,
+    });
+  } catch (error) {
+    console.error('Simulator Calculation Error:', error);
+    res.status(500).json({ error: 'Failed to calculate simulation.', details: error.message });
+  }
+});
+
+// Save Simulation Scenario without altering real assessments
+app.post('/api/simulator/save-scenario', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const {
+      version_id,
+      role_version_id,
+      scenario_name,
+      notes,
+      baseline_readiness_pct,
+      simulated_readiness_pct,
+      gap_reduction_points,
+      skill_changes,
+    } = req.body;
+
+    const parsedVersionId = parseInt(role_version_id || version_id, 10);
+
+    if (!scenario_name || !parsedVersionId || !Array.isArray(skill_changes)) {
+      return res.status(400).json({ error: 'scenario_name, version_id, and skill_changes array are required.' });
+    }
+
+    const savedScenario = await prisma_24BAI0226_SaiSiriChandana.$transaction(async (tx) => {
+      const scenario = await tx.simulationScenario.create({
+        data: {
+          user_id: req.user.user_id,
+          version_id: parsedVersionId,
+          scenario_name,
+          baseline_readiness_pct: parseFloat(baseline_readiness_pct || 0),
+          simulated_readiness_pct: parseFloat(simulated_readiness_pct || 0),
+          gap_reduction_points: parseInt(gap_reduction_points || 0, 10),
+        },
+      });
+
+      for (const sc of skill_changes) {
+        await tx.simulationSkillChange.create({
+          data: {
+            scenario_id: scenario.scenario_id,
+            skill_id: parseInt(sc.skill_id, 10),
+            baseline_proficiency: parseInt(sc.baseline_proficiency ?? sc.original_level ?? 0, 10),
+            simulated_proficiency: parseInt(sc.simulated_proficiency ?? sc.simulated_level ?? 0, 10),
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          user_id: req.user.user_id,
+          action: 'SAVE_WHAT_IF_SCENARIO',
+          table_name: 'simulation_scenarios',
+          record_id: scenario.scenario_id,
+          details: `User ${req.user.full_name} saved What-If Scenario "${scenario_name}" (Simulated Readiness: ${simulated_readiness_pct}% vs Baseline: ${baseline_readiness_pct}%).`,
+        },
+      });
+
+      return scenario;
+    });
+
+    res.json({
+      message: 'What-If Scenario saved successfully into PostgreSQL.',
+      scenario_id: savedScenario.scenario_id,
+      scenario: savedScenario,
+    });
+  } catch (error) {
+    console.error('Save Scenario Error:', error);
+    res.status(500).json({ error: 'Failed to save simulation scenario.', details: error.message });
+  }
+});
+
+// Retrieve User's Saved Scenarios
+app.get('/api/simulator/saved-scenarios', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const scenarios = await prisma_24BAI0226_SaiSiriChandana.simulationScenario.findMany({
+      where: { user_id: req.user.user_id },
+      include: {
+        version: { include: { job_role: true } },
+        changes: { include: { skill: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json(scenarios);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve saved scenarios.', details: error.message });
+  }
+});
+
+// Shared-Skill Optimization Ranking (High Leverage Cross-Career Skills)
+app.get('/api/simulator/shared-skill-optimization', authenticate_24BAI0226_SaiSiriChandana, async (req, res) => {
+  try {
+    const requirements = await prisma_24BAI0226_SaiSiriChandana.jobRequirement.findMany({
+      where: { version: { is_active: true } },
+      include: {
+        skill: true,
+        version: { include: { job_role: true } },
+      },
+    });
+
+    const skillStats = {};
+    requirements.forEach((reqItem) => {
+      const sId = reqItem.skill_id;
+      if (!skillStats[sId]) {
+        skillStats[sId] = {
+          skill_id: sId,
+          skill_name: reqItem.skill.skill_name,
+          skill_code: reqItem.skill.skill_code,
+          category: reqItem.skill.category,
+          roles_requiring: [],
+          total_importance_weight: 0,
+          avg_required_proficiency: 0,
+        };
+      }
+      skillStats[sId].roles_requiring.push(reqItem.version.job_role.title);
+      skillStats[sId].total_importance_weight += reqItem.importance_weight;
+      skillStats[sId].avg_required_proficiency += reqItem.required_proficiency;
+    });
+
+    const rankedSkills = Object.values(skillStats)
+      .map((s) => {
+        const score = parseFloat((s.total_importance_weight * s.roles_requiring.length).toFixed(1));
+        return {
+          ...s,
+          roles: s.roles_requiring,
+          role_count: s.roles_requiring.length,
+          avg_required_proficiency: parseFloat((s.avg_required_proficiency / s.roles_requiring.length).toFixed(1)),
+          cross_career_leverage_score: score,
+          cross_role_leverage_score: score,
+        };
+      })
+      .sort((a, b) => b.cross_career_leverage_score - a.cross_career_leverage_score);
+
+    res.json(rankedSkills);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to compile shared skill optimization.', details: error.message });
+  }
+});
+
+// ============================================================================
 // START SERVER
 // ============================================================================
 app.listen(PORT, () => {

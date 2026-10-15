@@ -56,6 +56,12 @@ import {
   Target,
   ArrowRight,
   X,
+  Sliders,
+  RotateCcw,
+  Save,
+  HelpCircle,
+  Lightbulb,
+  Bookmark,
 } from 'lucide-react';
 
 const API_BASE = '/api';
@@ -128,6 +134,18 @@ export default function App_24BAI0226_SaiSiriChandana() {
   const [showDossierModal, setShowDossierModal] = useState(false);
 
   // --------------------------------------------------------------------------
+  // STANDOUT FEATURE 6: SKILLGAP RADAR 360 - WHAT-IF CAREER SIMULATOR
+  // --------------------------------------------------------------------------
+  const [simulatedSkills, setSimulatedSkills] = useState({});
+  const [simulationData, setSimulationData] = useState(null);
+  const [loadingSimulation, setLoadingSimulation] = useState(false);
+  const [savedScenarios, setSavedScenarios] = useState([]);
+  const [scenarioNameInput, setScenarioNameInput] = useState('');
+  const [scenarioNotesInput, setScenarioNotesInput] = useState('');
+  const [savingScenario, setSavingScenario] = useState(false);
+  const [scenarioFeedback, setScenarioFeedback] = useState(null);
+  const [sharedOptimizationList, setSharedOptimizationList] = useState([]);
+  const [loadingOptimization, setLoadingOptimization] = useState(false);
   // ADMIN PANEL STATE
   // --------------------------------------------------------------------------
   const [auditLogs, setAuditLogs] = useState([]);
@@ -355,6 +373,151 @@ export default function App_24BAI0226_SaiSiriChandana() {
     }
   };
 
+  // --------------------------------------------------------------------------
+  // STANDOUT FEATURE 6 METHODS: WHAT-IF CAREER SIMULATOR
+  // --------------------------------------------------------------------------
+  const fetchSimulation = async (skillsMap = simulatedSkills, versionId = selectedVersionId) => {
+    if (!authToken || !versionId) return;
+    setLoadingSimulation(true);
+    try {
+      const payloadSkills = Object.entries(skillsMap).map(([id, lvl]) => ({
+        skill_id: parseInt(id, 10),
+        simulated_level: parseInt(lvl, 10),
+      }));
+
+      const res = await fetch(`${API_BASE}/simulator/calculate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          role_version_id: versionId,
+          simulated_skills: payloadSkills,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationData(data);
+      }
+    } catch (err) {
+      console.error('Simulator calculate error:', err);
+    } finally {
+      setLoadingSimulation(false);
+    }
+  };
+
+  const fetchSavedScenarios = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/simulator/saved-scenarios`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedScenarios(data);
+      }
+    } catch (err) {
+      console.error('Fetch saved scenarios error:', err);
+    }
+  };
+
+  const fetchSharedOptimization = async () => {
+    if (!authToken) return;
+    setLoadingOptimization(true);
+    try {
+      const res = await fetch(`${API_BASE}/simulator/shared-skill-optimization`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSharedOptimizationList(data);
+      }
+    } catch (err) {
+      console.error('Fetch shared optimization error:', err);
+    } finally {
+      setLoadingOptimization(false);
+    }
+  };
+
+  const handleSliderChange = (skillId, value) => {
+    const updated = { ...simulatedSkills, [skillId]: parseInt(value, 10) };
+    setSimulatedSkills(updated);
+    fetchSimulation(updated, selectedVersionId);
+  };
+
+  const handleResetSimulation = () => {
+    if (!reportData?.details) return;
+    const resetMap = {};
+    reportData.details.forEach((d) => {
+      resetMap[d.skill.skill_id] = d.assessed_proficiency;
+    });
+    setSimulatedSkills(resetMap);
+    fetchSimulation(resetMap, selectedVersionId);
+    setScenarioFeedback({ type: 'info', message: 'Simulation reset to baseline assessment.' });
+    setTimeout(() => setScenarioFeedback(null), 3500);
+  };
+
+  const handleSaveScenario = async (e) => {
+    if (e) e.preventDefault();
+    if (!authToken || !simulationData) return;
+    setSavingScenario(true);
+    try {
+      const skillChanges = (simulationData.skills || []).map((s) => ({
+        skill_id: s.skill_id,
+        original_level: s.baseline_level,
+        simulated_level: s.simulated_level,
+      }));
+
+      const res = await fetch(`${API_BASE}/simulator/save-scenario`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          scenario_name:
+            scenarioNameInput ||
+            `Scenario: ${simulationData.role_title} (+${simulationData.readiness_gain_pct}% Readiness)`,
+          notes: scenarioNotesInput,
+          role_version_id: selectedVersionId,
+          skill_changes: skillChanges,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save scenario');
+
+      setScenarioFeedback({
+        type: 'success',
+        message: `Scenario saved (#${data.scenario_id})! Transaction committed to PostgreSQL.`,
+      });
+      setScenarioNameInput('');
+      setScenarioNotesInput('');
+      fetchSavedScenarios();
+      setTimeout(() => setScenarioFeedback(null), 5000);
+    } catch (err) {
+      setScenarioFeedback({ type: 'error', message: err.message });
+      setTimeout(() => setScenarioFeedback(null), 5000);
+    } finally {
+      setSavingScenario(false);
+    }
+  };
+
+  const handleLoadScenario = (sc) => {
+    const loadedMap = {};
+    sc.skill_changes.forEach((scItem) => {
+      loadedMap[scItem.skill_id] = scItem.simulated_level;
+    });
+    setSimulatedSkills(loadedMap);
+    setSelectedVersionId(sc.role_version_id);
+    fetchSimulation(loadedMap, sc.role_version_id);
+    setScenarioFeedback({
+      type: 'info',
+      message: `Loaded scenario "${sc.scenario_name}" (${sc.role_version?.job_role?.role_title || 'Role'} v${sc.role_version?.version_number || '1.0'})`,
+    });
+    setTimeout(() => setScenarioFeedback(null), 4000);
+  };
+
   useEffect(() => {
     if (authToken) {
       fetchCareerRoles();
@@ -364,12 +527,25 @@ export default function App_24BAI0226_SaiSiriChandana() {
       fetchDagGraph();
       fetchMultiRoleComparison();
       fetchProgressTimeline();
+      fetchSavedScenarios();
+      fetchSharedOptimization();
       if (currentUser?.role === 'ADMIN') {
         fetchAuditLogs(1);
         fetchQueryBenchmarks();
       }
     }
   }, [authToken, selectedVersionId]);
+
+  useEffect(() => {
+    if (reportData?.details) {
+      const initialMap = {};
+      reportData.details.forEach((d) => {
+        initialMap[d.skill.skill_id] = d.assessed_proficiency;
+      });
+      setSimulatedSkills(initialMap);
+      fetchSimulation(initialMap, selectedVersionId);
+    }
+  }, [reportData]);
 
   useEffect(() => {
     if (authToken) {
@@ -711,6 +887,16 @@ export default function App_24BAI0226_SaiSiriChandana() {
               <TrendingUp className="w-3.5 h-3.5" /> Competency Radar
             </button>
             <button
+              onClick={() => setActiveTab('simulator')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'simulator'
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-300" /> What-If Simulator 360
+            </button>
+            <button
               onClick={() => setActiveTab('assessment')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'assessment'
@@ -997,6 +1183,584 @@ export default function App_24BAI0226_SaiSiriChandana() {
 
               <div className="mt-4 pt-3 border-t border-gray-800 text-[11px] text-gray-400">
                 Audited by Stored Procedure <code className="text-indigo-300 font-mono">sp_generate_gap_report_24BAI0226_SaiSiriChandana</code>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* STANDOUT FEATURE: SKILLGAP RADAR 360 - WHAT-IF CAREER SIMULATOR   */}
+        {/* ------------------------------------------------------------------ */}
+        {activeTab === 'simulator' && (
+          <div className="space-y-6">
+            {/* Header / Intro Card */}
+            <div className="glass-panel p-6 rounded-3xl border border-amber-500/30 shadow-2xl relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                      SkillGap Radar 360 Standout Feature
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">
+                      PostgreSQL Isolated Engine
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <Sliders className="w-6 h-6 text-amber-400" />
+                    What-If Career Simulator & Shared-Skill Optimizer
+                  </h2>
+                  <p className="text-xs text-gray-300 max-w-3xl">
+                    Simulate how hypothetical proficiency boosts and target career adjustments affect your readiness score, learning effort, and prerequisite dependencies — without modifying permanent assessment records.
+                  </p>
+                </div>
+
+                {/* Top Action Controls */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleResetSimulation}
+                    className="px-3.5 py-2 bg-gray-900/90 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-xl text-xs font-semibold text-gray-300 flex items-center gap-1.5 transition shadow-sm"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" /> Reset Baseline
+                  </button>
+
+                  <div className="flex items-center gap-2 bg-gray-950/80 border border-gray-800 px-3 py-1.5 rounded-xl">
+                    <Target className="w-4 h-4 text-cyan-400" />
+                    <select
+                      value={selectedVersionId}
+                      onChange={(e) => setSelectedVersionId(parseInt(e.target.value, 10))}
+                      className="bg-transparent text-xs text-white font-medium focus:outline-none"
+                    >
+                      {careerRoles.map((role) => (
+                        <optgroup key={role.role_id} label={role.role_title}>
+                          {role.versions.map((v) => (
+                            <option key={v.version_id} value={v.version_id} className="bg-gray-900 text-white">
+                              {role.role_title} (v{v.version_number})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Feedback Notification */}
+              {scenarioFeedback && (
+                <div
+                  className={`mt-4 p-3 rounded-2xl text-xs flex items-center gap-2 border ${
+                    scenarioFeedback.type === 'success'
+                      ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                      : scenarioFeedback.type === 'error'
+                      ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                      : 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{scenarioFeedback.message}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 4 KPI Telemetry Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Simulated Readiness */}
+              <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 shadow-xl relative overflow-hidden">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                  <span>Simulated Readiness</span>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                    +{simulationData?.readiness_gain_pct || 0}% Gain
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold font-mono text-white">
+                    {simulationData?.simulated_readiness_pct || 0}%
+                  </span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    (Baseline: {simulationData?.baseline_readiness_pct || 0}%)
+                  </span>
+                </div>
+                {/* Visual Progress Bar */}
+                <div className="w-full bg-gray-800 rounded-full h-2 mt-3 overflow-hidden flex">
+                  <div
+                    className="bg-indigo-600 h-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, simulationData?.baseline_readiness_pct || 0)}%` }}
+                    title={`Baseline: ${simulationData?.baseline_readiness_pct || 0}%`}
+                  ></div>
+                  <div
+                    className="bg-amber-400 h-full transition-all duration-500"
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          100 - (simulationData?.baseline_readiness_pct || 0),
+                          simulationData?.readiness_gain_pct || 0
+                        )
+                      )}%`,
+                    }}
+                    title={`Simulated Gain: +${simulationData?.readiness_gain_pct || 0}%`}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Card 2: Gap Points Reduced */}
+              <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 shadow-xl">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                  <span>Gap Points Reduced</span>
+                  <span className="text-xs text-cyan-400 font-mono font-bold">
+                    {simulationData?.gap_reduction_pct || 0}% Reduction
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold font-mono text-cyan-300">
+                    {(simulationData?.total_baseline_gap_levels || 0) -
+                      (simulationData?.total_simulated_gap_levels || 0)}{' '}
+                    pts
+                  </span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    ({simulationData?.total_simulated_gap_levels || 0} remaining)
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Baseline gap was {simulationData?.total_baseline_gap_levels || 0} levels across role skills
+                </p>
+              </div>
+
+              {/* Card 3: Estimated Study Effort */}
+              <div className="glass-panel p-5 rounded-2xl border border-purple-500/20 shadow-xl">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                  <span>Estimated Learning Effort</span>
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold font-mono text-purple-300">
+                    {simulationData?.total_estimated_study_hours || 0} hrs
+                  </span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    (~{Math.ceil((simulationData?.total_estimated_study_hours || 0) / 15)} level steps)
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Calculated at ~15 focused study hours per competency level step
+                </p>
+              </div>
+
+              {/* Card 4: Multi-Role Spillover Multiplier */}
+              <div className="glass-panel p-5 rounded-2xl border border-emerald-500/20 shadow-xl">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                  <span>Adjacent Career Impact</span>
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold font-mono text-emerald-300">
+                    {simulationData?.cross_role_impact?.length || 0} Roles
+                  </span>
+                  <span className="text-xs text-emerald-400 font-mono font-bold">
+                    Multi-Benefit
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Skills boosted in this scenario directly qualify you for other career tracks
+                </p>
+              </div>
+            </div>
+
+            {/* Prerequisite Guardrail Alerts Banner */}
+            {simulationData?.prerequisite_alerts && simulationData.prerequisite_alerts.length > 0 && (
+              <div className="p-5 bg-amber-950/40 border border-amber-500/50 rounded-2xl shadow-xl space-y-2 animate-pulse">
+                <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+                  <AlertTriangle className="w-5 h-5 text-amber-400" />
+                  <span>Prerequisite Dependency Guardrail Alert</span>
+                </div>
+                <p className="text-xs text-amber-200/90 leading-relaxed">
+                  The skill graph detects advanced competence simulated for topics whose prerequisite foundation is below minimum mastery (Level 3). In practice, you must master the prerequisite first to avoid learning bottlenecks:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                  {simulationData.prerequisite_alerts.map((al, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-gray-950/80 border border-amber-500/30 rounded-xl text-xs flex items-center justify-between"
+                    >
+                      <span className="text-gray-200 font-medium">
+                        {al.skill_name} (Simulated: L{al.simulated_level})
+                      </span>
+                      <span className="text-amber-400 font-mono text-[11px]">
+                        Requires {al.prerequisite_skill_name} ≥ L{al.min_level} (Current: L{al.prerequisite_level})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Main Content: Sliders (Left) vs Multi-Career & Save (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Interactive Proficiency Sliders (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="glass-panel p-6 rounded-3xl border border-gray-800 shadow-2xl space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800 pb-4">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-amber-400" />
+                        Target Role Proficiency Sliders
+                      </h3>
+                      <p className="text-xs text-gray-400">
+                        Adjust levels from 0 to 5 to observe immediate gap shrinkage and readiness trajectory.
+                      </p>
+                    </div>
+
+                    {/* Quick Scenario Preset Chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => {
+                          const updated = { ...simulatedSkills };
+                          (simulationData?.skills || []).forEach((s) => {
+                            if (s.category === 'DATABASE') {
+                              updated[s.skill_id] = Math.min(5, (updated[s.skill_id] ?? s.baseline_level) + 1);
+                            }
+                          });
+                          setSimulatedSkills(updated);
+                          fetchSimulation(updated, selectedVersionId);
+                        }}
+                        className="px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-700/50 rounded-lg text-[10px] text-indigo-300 font-medium transition"
+                        title="Boost all database skills by +1 level"
+                      >
+                        +1 Database
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = { ...simulatedSkills };
+                          (simulationData?.skills || []).forEach((s) => {
+                            updated[s.skill_id] = s.required_level;
+                          });
+                          setSimulatedSkills(updated);
+                          fetchSimulation(updated, selectedVersionId);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700/50 rounded-lg text-[10px] text-emerald-300 font-medium transition"
+                        title="Set all skills to 100% required target"
+                      >
+                        Target 100%
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Skills Sliders List */}
+                  <div className="space-y-4">
+                    {simulationData?.skills?.map((sk) => {
+                      const currentVal = simulatedSkills[sk.skill_id] ?? sk.baseline_level;
+                      const isBoosted = currentVal > sk.baseline_level;
+                      const satisfiesReq = currentVal >= sk.required_level;
+
+                      return (
+                        <div
+                          key={sk.skill_id}
+                          className="p-4 bg-gray-950/70 border border-gray-800/80 hover:border-gray-700 rounded-2xl space-y-3 transition"
+                        >
+                          {/* Skill Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-white">{sk.skill_name}</span>
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-900 text-gray-400 border border-gray-800">
+                                  {sk.category}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-3">
+                                <span>
+                                  Target: <strong className="text-cyan-400">{sk.required_level}/5</strong>
+                                </span>
+                                <span>
+                                  Assessed Baseline: <strong className="text-indigo-400">{sk.baseline_level}/5</strong>
+                                </span>
+                                <span>
+                                  Weight: <strong className="text-gray-300">{sk.importance_weight}x</strong>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Gap Status Pill */}
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              {satisfiesReq ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Target Satisfied
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                  Gap: -{sk.required_level - currentVal}
+                                </span>
+                              )}
+
+                              {isBoosted && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  +{currentVal - sk.baseline_level} level (~
+                                  {(currentVal - sk.baseline_level) * 15}h)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Interactive Slider Bar */}
+                          <div className="flex items-center gap-3 pt-1">
+                            <button
+                              onClick={() => handleSliderChange(sk.skill_id, Math.max(0, currentVal - 1))}
+                              disabled={currentVal <= 0}
+                              className="w-7 h-7 rounded-lg bg-gray-900 border border-gray-700 hover:border-amber-400 text-gray-300 disabled:opacity-30 disabled:pointer-events-none text-xs flex items-center justify-center font-bold"
+                            >
+                              -
+                            </button>
+
+                            <div className="flex-1 relative flex items-center">
+                              <input
+                                type="range"
+                                min="0"
+                                max="5"
+                                step="1"
+                                value={currentVal}
+                                onChange={(e) => handleSliderChange(sk.skill_id, e.target.value)}
+                                className="w-full accent-amber-500 h-2 bg-gray-800 rounded-lg cursor-pointer"
+                              />
+                            </div>
+
+                            <button
+                              onClick={() => handleSliderChange(sk.skill_id, Math.min(5, currentVal + 1))}
+                              disabled={currentVal >= 5}
+                              className="w-7 h-7 rounded-lg bg-gray-900 border border-gray-700 hover:border-amber-400 text-gray-300 disabled:opacity-30 disabled:pointer-events-none text-xs flex items-center justify-center font-bold"
+                            >
+                              +
+                            </button>
+
+                            <div className="min-w-[70px] text-right font-mono text-xs font-bold text-white bg-gray-900 px-2.5 py-1 rounded-lg border border-gray-800">
+                              Level {currentVal}/5
+                            </div>
+                          </div>
+
+                          {/* Visual Step Markers */}
+                          <div className="flex justify-between text-[10px] font-mono text-gray-500 px-8">
+                            {[0, 1, 2, 3, 4, 5].map((lvl) => (
+                              <span
+                                key={lvl}
+                                className={`flex flex-col items-center ${
+                                  lvl === currentVal
+                                    ? 'text-amber-400 font-bold'
+                                    : lvl === sk.baseline_level
+                                    ? 'text-indigo-400 font-semibold'
+                                    : lvl === sk.required_level
+                                    ? 'text-cyan-400'
+                                    : ''
+                                }`}
+                              >
+                                <span>{lvl}</span>
+                                {lvl === sk.baseline_level && (
+                                  <span className="text-[8px] text-indigo-400 uppercase">Base</span>
+                                )}
+                                {lvl === sk.required_level && lvl !== sk.baseline_level && (
+                                  <span className="text-[8px] text-cyan-400 uppercase">Req</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Multi-Career Intelligence & Save Scenario (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* 1. Multi-Career Spillover Analysis */}
+                <div className="glass-panel p-6 rounded-3xl border border-indigo-500/20 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                        Multi-Career Spillover Impact
+                      </h4>
+                      <p className="text-[11px] text-gray-400">
+                        How your simulated skill boosts qualify you across adjacent career tracks.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-950/60 text-emerald-300 border border-emerald-800 rounded-full">
+                      Cross-Role ROI
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {simulationData?.cross_role_impact && simulationData.cross_role_impact.length > 0 ? (
+                      simulationData.cross_role_impact.map((cr, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3.5 bg-gray-950/70 border border-gray-800 rounded-2xl space-y-2 hover:border-gray-700 transition"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs font-bold text-white">{cr.role_title}</div>
+                              <div className="text-[10px] text-gray-400 font-mono">
+                                Version {cr.version_number} • {cr.matched_skills_count} shared skills
+                              </div>
+                            </div>
+                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              +{cr.readiness_gain_pct}% Gain
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-gray-300">
+                            <span>
+                              Baseline: <strong className="text-indigo-300">{cr.baseline_readiness_pct}%</strong>
+                            </span>
+                            <span>
+                              Simulated: <strong className="text-emerald-300">{cr.simulated_readiness_pct}%</strong>
+                            </span>
+                          </div>
+
+                          <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden flex">
+                            <div
+                              className="bg-indigo-600 h-full"
+                              style={{ width: `${Math.min(100, cr.baseline_readiness_pct)}%` }}
+                            ></div>
+                            <div
+                              className="bg-emerald-400 h-full"
+                              style={{
+                                width: `${Math.min(100 - cr.baseline_readiness_pct, cr.readiness_gain_pct)}%`,
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-xs text-gray-500">
+                        No cross-role data available.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Shared-Skill Optimization Ranking */}
+                <div className="glass-panel p-6 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        Highest-Leverage Shared Skills
+                      </h4>
+                      <p className="text-[11px] text-gray-400">
+                        Ranked by multi-role occurrence & priority in PostgreSQL database.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {sharedOptimizationList.slice(0, 4).map((sh, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-gray-950/60 border border-gray-800/80 rounded-xl flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-semibold text-white">{sh.skill_name}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            Appears in <strong className="text-amber-300">{sh.role_count} roles</strong> ({sh.roles.join(', ')})
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono text-xs font-bold text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800">
+                            Score: {sh.cross_role_leverage_score}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Save Hypothetical Scenario Form */}
+                <div className="glass-panel p-6 rounded-3xl border border-amber-500/20 shadow-2xl space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Save className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-sm font-bold text-white">Save Hypothetical Scenario</h4>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Saves your simulated changes to <code className="text-amber-300 font-mono">simulation_scenarios</code> without altering permanent records.
+                  </p>
+
+                  <form onSubmit={handleSaveScenario} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Scenario Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., 4-Week SQL & Python Sprint"
+                        value={scenarioNameInput}
+                        onChange={(e) => setScenarioNameInput(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 placeholder-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Career Strategy Notes (Optional)
+                      </label>
+                      <textarea
+                        rows="2"
+                        placeholder="e.g., Focusing on database indexing before applying for backend internships..."
+                        value={scenarioNotesInput}
+                        onChange={(e) => setScenarioNotesInput(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 placeholder-gray-500 resize-none"
+                      ></textarea>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingScenario}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl text-xs font-semibold shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      {savingScenario ? 'Saving Scenario...' : 'Save Scenario to PostgreSQL'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* 4. Previously Saved Scenarios Drawer */}
+                {savedScenarios.length > 0 && (
+                  <div className="glass-panel p-6 rounded-3xl border border-gray-800 shadow-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Bookmark className="w-4 h-4 text-cyan-400" />
+                        Saved Scenarios History ({savedScenarios.length})
+                      </h4>
+                    </div>
+
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                      {savedScenarios.map((sc) => (
+                        <div
+                          key={sc.scenario_id}
+                          className="p-3 bg-gray-950/70 border border-gray-800 rounded-2xl flex items-center justify-between gap-3 text-xs hover:border-gray-700 transition"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-bold text-white truncate">{sc.scenario_name}</div>
+                            <div className="text-[10px] text-gray-400">
+                              {sc.role_version?.job_role?.role_title} (v{sc.role_version?.version_number}) •{' '}
+                              {new Date(sc.created_at).toLocaleDateString()}
+                            </div>
+                            {sc.notes && (
+                              <div className="text-[10px] text-gray-500 italic truncate mt-0.5">
+                                "{sc.notes}"
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => handleLoadScenario(sc)}
+                            className="px-3 py-1.5 bg-gray-900 border border-gray-700 hover:border-amber-400 text-amber-300 rounded-xl text-[11px] font-semibold whitespace-nowrap transition"
+                          >
+                            Load
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

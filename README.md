@@ -167,3 +167,14 @@ gantt
     GitHub Actions & Backup Scripts     :done, 2026-10-01, 2026-10-08
     Laboratory Evaluation & Testing     :active, 2026-10-09, 2026-10-15
 ```
+
+---
+
+## 10. Flagship Novel Feature — SkillGap Radar 360: What-If Career Simulator
+Rather than adding a superficial chatbot, **SkillGap Radar 360** implements a **deterministic, evidence-based What-If Career Simulator** and **Shared-Skill Multi-Role Optimizer**:
+1. **Hypothetical Proficiency Modeling**: Adjust competency levels (0–5) using interactive sliders to project readiness gains and study investment (~15 hrs/step) in real time without mutating permanent assessment rows (`assessment_attempts`).
+2. **Prerequisite Dependency Guardrail**: Real-time graph traversal alerts students when simulating advanced competencies whose prerequisite foundations remain below minimum mastery (Level 3).
+3. **Cross-Career Spillover Intelligence**: Calculates readiness gain spillover across all active industry roles (e.g. boosting SQL & Python elevates Data Analyst readiness by +27% alongside Backend Developer).
+4. **Shared-Skill Optimization Ranking**: Identifies and ranks skills that bridge multiple target roles by database cross-role leverage score.
+5. **PostgreSQL Isolated Scenario Persistence**: Atomically saves scenarios and proficiency delta history in `simulation_scenarios` and `simulation_skill_changes` with automated security audit logging.
+

@@ -31,6 +31,7 @@ model User {
   attempts       AssessmentAttempt[]
   reports        SkillGapReport[]
   audit_logs     AuditLog[]
+  scenarios      SimulationScenario[]
 
   @@index([email])
   @@index([reg_no])
@@ -51,6 +52,7 @@ model Skill {
   attempts            AssessmentAttempt[]
   gap_details         SkillGapDetail[]
   resources           LearningResource[]
+  simulated_changes   SimulationSkillChange[]
 
   @@index([category])
   @@map("skills")
@@ -92,6 +94,7 @@ model JobRoleVersion {
   job_role       JobRole          @relation(fields: [job_role_id], references: [job_role_id], onDelete: Cascade)
   requirements   JobRequirement[]
   reports        SkillGapReport[]
+  scenarios      SimulationScenario[]
 
   @@unique([job_role_id, version_number])
   @@map("job_role_versions")
@@ -230,3 +233,38 @@ model AuditLog {
   @@index([created_at])
   @@map("audit_logs")
 }
+
+// 15. What-If Simulation Scenarios (SkillGap Radar 360)
+model SimulationScenario {
+  scenario_id             Int                      @id @default(autoincrement())
+  user_id                 Int
+  version_id              Int
+  scenario_name           String                   @db.VarChar(150)
+  baseline_readiness_pct  Decimal                  @db.Decimal(5, 2)
+  simulated_readiness_pct Decimal                  @db.Decimal(5, 2)
+  gap_reduction_points    Int                      @default(0)
+  created_at              DateTime                 @default(now())
+
+  user                    User                     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  version                 JobRoleVersion           @relation(fields: [version_id], references: [version_id], onDelete: Cascade)
+  changes                 SimulationSkillChange[]
+
+  @@index([user_id, version_id])
+  @@map("simulation_scenarios")
+}
+
+// 16. What-If Simulation Skill Changes
+model SimulationSkillChange {
+  change_id             Int                @id @default(autoincrement())
+  scenario_id           Int
+  skill_id              Int
+  baseline_proficiency  Int
+  simulated_proficiency Int
+
+  scenario              SimulationScenario @relation(fields: [scenario_id], references: [scenario_id], onDelete: Cascade)
+  skill                 Skill              @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+
+  @@unique([scenario_id, skill_id])
+  @@map("simulation_skill_changes")
+}
+

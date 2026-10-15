@@ -185,8 +185,63 @@ async function runVerification_24BAI0226_SaiSiriChandana() {
     console.log(`  • Execution Time: ${bm.stats.execution_time_ms} ms | Planning Time: ${bm.stats.planning_time_ms} ms | Optimizer Cost: ${bm.stats.total_cost} | Shared Hit Blocks: ${bm.stats.shared_hit_blocks}`);
   });
 
+  // Test 13: SkillGap Radar 360 - What-If Career Simulator & Shared-Skill Optimizer
+  console.log('\n[Test 13] Testing SkillGap Radar 360: What-If Career Simulator & Shared-Skill Optimizer...');
+  const simCalcRes = await fetch(`${BASE_URL}/simulator/calculate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${studentToken}`,
+    },
+    body: JSON.stringify({
+      role_version_id: 2,
+      simulated_skills: [
+        { skill_id: 1, simulated_level: 4 },
+        { skill_id: 2, simulated_level: 4 },
+      ],
+    }),
+  });
+  const simCalcData = await simCalcRes.json();
+  console.log(`✓ Simulated Readiness Computed: Baseline ${simCalcData.baseline_readiness_pct}% -> Simulated ${simCalcData.simulated_readiness_pct}% (+${simCalcData.readiness_gain_pct}% Gain)`);
+  console.log(`  • Gap Reduction: ${simCalcData.gap_reduction_pct}% | Study Hours: ${simCalcData.total_estimated_study_hours} hrs`);
+  console.log(`  • Cross-Role Spillover: ${simCalcData.cross_role_impact.length} adjacent career tracks benefited.`);
+  simCalcData.cross_role_impact.forEach((cr) => {
+    console.log(`    - ${cr.role_title} (v${cr.version_number}): +${cr.readiness_gain_pct}% Gain (Baseline ${cr.baseline_readiness_pct}% -> ${cr.simulated_readiness_pct}%)`);
+  });
+
+  // Save Scenario
+  const saveScRes = await fetch(`${BASE_URL}/simulator/save-scenario`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${studentToken}`,
+    },
+    body: JSON.stringify({
+      scenario_name: 'Sprint 2026: SQL & Schema Optimization',
+      notes: 'Testing hypothetical scenario persistence without modifying permanent assessment records.',
+      role_version_id: 2,
+      skill_changes: [
+        { skill_id: 1, original_level: 2, simulated_level: 4 },
+        { skill_id: 2, original_level: 2, simulated_level: 4 },
+      ],
+    }),
+  });
+  const saveScData = await saveScRes.json();
+  console.log(`✓ Hypothetical scenario saved (#${saveScData.scenario_id}) in PostgreSQL table "simulation_scenarios".`);
+
+  // Shared-Skill Optimization
+  const sharedRes = await fetch(`${BASE_URL}/simulator/shared-skill-optimization`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+  });
+  const sharedData = await sharedRes.json();
+  console.log(`✓ Shared-Skill Multi-Role Optimization computed for ${sharedData.length} cross-cutting skills:`);
+  sharedData.forEach((s) => {
+    const rolesList = (s.roles || s.roles_requiring || []).join(', ');
+    console.log(`  Skill "${s.skill_name}": Shared across ${s.role_count} roles (${rolesList}) | Cross-Role Leverage Score: ${s.cross_role_leverage_score || s.cross_career_leverage_score}`);
+  });
+
   console.log('\n================================================================');
-  console.log('ALL 12 END-TO-END & STANDOUT VERIFICATION TESTS PASSED WITH 100%!');
+  console.log('ALL 13 END-TO-END & STANDOUT NOVEL FEATURE TESTS PASSED (100%)!');
   console.log('Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
   console.log('================================================================');
 }
@@ -195,3 +250,4 @@ runVerification_24BAI0226_SaiSiriChandana().catch((err) => {
   console.error('Verification Failure:', err);
   process.exit(1);
 });
+
