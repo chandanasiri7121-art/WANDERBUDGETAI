@@ -255,10 +255,12 @@ Analyze the destination "${cityName}". Return ONLY a valid JSON object (no markd
 }
 Ensure at least 5 authentic, real tourist attractions for ${cityName}.`;
 
-    // Try Gemini 1.5 Flash first, then Gemini 2.0 Flash
+    // Try Gemini 3.5 Flash Lite, 3.1 Flash Lite, and 3.8 Flash
     const endpoints = [
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey.trim()}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey.trim()}`
     ];
 
     for (const url of endpoints) {
@@ -1385,28 +1387,47 @@ Instructions:
           parts: [{ text: `${systemPrompt}\n\nUser Question: ${cleanMsg}` }]
         });
 
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: geminiHistory,
-            generationConfig: { temperature: 0.3 }
-          }),
-          signal: AbortSignal.timeout(8000)
-        });
+        const chatEndpoints = [
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey.trim()}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`
+        ];
 
-        if (geminiRes.ok) {
-          const gData = await geminiRes.json();
-          const replyText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (replyText && replyText.trim().length > 10) {
-            return res.json({
-              reply: replyText.trim(),
-              engine: 'GOOGLE_GEMINI_1_5_FLASH',
-              detected_destination: destContext ? {
-                destination_id: destContext.destination_id,
-                city_name: destContext.city_name,
-                country_name: destContext.country_name
-              } : null,
+        let replyText = null;
+        for (const endpointUrl of chatEndpoints) {
+          try {
+            const geminiRes = await fetch(endpointUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: geminiHistory,
+                generationConfig: { temperature: 0.3 }
+              }),
+              signal: AbortSignal.timeout(8000)
+            });
+
+            if (geminiRes.ok) {
+              const gData = await geminiRes.json();
+              const candidate = gData.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (candidate && candidate.trim().length > 10) {
+                replyText = candidate.trim();
+                break;
+              }
+            }
+          } catch (endpointErr) {
+            // try next endpoint
+          }
+        }
+
+        if (replyText) {
+          return res.json({
+            reply: replyText,
+            engine: 'GOOGLE_GEMINI_3_5_FLASH_LITE',
+            detected_destination: destContext ? {
+              destination_id: destContext.destination_id,
+              city_name: destContext.city_name,
+              country_name: destContext.country_name
+            } : null,
               suggested_prompts: destContext ? [
                 `What is a 5-day budget for ${destContext.city_name}?`,
                 `Top free attractions in ${destContext.city_name}?`,
@@ -1418,11 +1439,10 @@ Instructions:
               ]
             });
           }
+        } catch (gemErr) {
+          console.warn('[Chatbot] Gemini call failed, falling back to smart heuristic:', gemErr.message);
         }
-      } catch (gemErr) {
-        console.warn('[Chatbot] Gemini call failed, falling back to smart heuristic:', gemErr.message);
       }
-    }
 
     // 3. Smart Domain-Aware Heuristic Travel Brain (Guaranteed 100% Reliable & Accurate)
     let reply = '';
