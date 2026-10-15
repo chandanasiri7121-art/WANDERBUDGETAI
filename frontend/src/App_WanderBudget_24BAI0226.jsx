@@ -208,6 +208,8 @@ export default function App_WanderBudget_24BAI0226() {
   const [selectedDestination, setSelectedDestination] = useState(null);
   const [selectedContinent, setSelectedContinent] = useState('ALL');
   const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
+  const [syncingRates, setSyncingRates] = useState(false);
+  const [rateSyncMessage, setRateSyncMessage] = useState('');
 
   // Trip Budget Builder State
   const [builderDestinationId, setBuilderDestinationId] = useState('');
@@ -393,6 +395,26 @@ export default function App_WanderBudget_24BAI0226() {
     }
   };
 
+  // API Call: Sync Real-Time Market Exchange Rates for Destination
+  const handleSyncLiveFxRates = async (destId) => {
+    if (!destId) return;
+    try {
+      setSyncingRates(true);
+      const res = await fetch(`/api/destinations/${destId}/sync-rates`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedDestination(data.destination);
+        setRateSyncMessage(data.message);
+        setTimeout(() => setRateSyncMessage(''), 5000);
+        setDestinations(prev => prev.map(d => d.destination_id === destId ? data.destination : d));
+      }
+    } catch (err) {
+      console.error('Rate sync error:', err);
+    } finally {
+      setSyncingRates(false);
+    }
+  };
+
   // API Call: Calculate Dynamic Budget (Mode 1: Plan-to-Cost)
   const calculateDynamicBudget = async () => {
     try {
@@ -531,6 +553,10 @@ export default function App_WanderBudget_24BAI0226() {
     setSimDays(days);
     setSimStyle(style);
     try {
+      const tripAttrIds = (activeTrip.attractions && activeTrip.attractions.length > 0)
+        ? activeTrip.attractions.map(a => a.attraction_id)
+        : (activeTrip.trip_attractions ? activeTrip.trip_attractions.map(ta => ta.attraction_id) : []);
+
       const res = await fetch('/api/trips/build-budget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -539,7 +565,7 @@ export default function App_WanderBudget_24BAI0226() {
           duration_days: days,
           travel_style: style,
           group_size: activeTrip.group_size,
-          attraction_ids: []
+          attraction_ids: tripAttrIds
         })
       });
       if (res.ok) {
@@ -945,30 +971,68 @@ export default function App_WanderBudget_24BAI0226() {
             {/* Destination Cost Index Details */}
             {selectedDestination && selectedDestination.cost_index && (
               <div className="space-y-6">
-                {/* Destination Hero Card */}
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <MapPin className="w-6 h-6 text-emerald-400" />
-                        {selectedDestination.city_name}, {selectedDestination.country_name}
-                      </h3>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-xs font-mono text-emerald-300 border border-slate-700">
-                        {selectedDestination.currency_code} ({selectedDestination.currency_symbol})
-                      </span>
+                {/* Rate Sync Success Notification */}
+                {rateSyncMessage && (
+                  <div className="p-3.5 rounded-xl bg-teal-500/15 border border-teal-500/40 text-teal-300 flex items-center justify-between text-xs animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span>{rateSyncMessage}</span>
                     </div>
-                    <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-                      {selectedDestination.description}
-                    </p>
-                    <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Live Internet Indexed
-                      </span>
-                      <span>•</span>
-                      <span>Exchange: 1 {selectedDestination.currency_code} = ₹{selectedDestination.cost_index.exchange_rate_to_inr} INR</span>
-                      <span>•</span>
-                      <span className="font-mono text-slate-400">Source: {selectedDestination.cost_index.source}</span>
+                    <span className="text-[10px] font-mono text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded">REAL-TIME ACCURACY</span>
+                  </div>
+                )}
+
+                {/* Destination Hero Card */}
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
+                    {selectedDestination.image_url && (
+                      <img
+                        src={selectedDestination.image_url}
+                        alt={selectedDestination.city_name}
+                        className="w-full md:w-44 h-28 object-cover rounded-xl border border-slate-700/80 shadow-md shrink-0"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80';
+                        }}
+                      />
+                    )}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                          <MapPin className="w-6 h-6 text-emerald-400" />
+                          {selectedDestination.city_name}, {selectedDestination.country_name}
+                        </h3>
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-xs font-mono text-emerald-300 border border-slate-700">
+                          {selectedDestination.currency_code} ({selectedDestination.currency_symbol})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSyncLiveFxRates(selectedDestination.destination_id)}
+                          disabled={syncingRates}
+                          className="px-2.5 py-0.5 rounded-full bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-teal-300 text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                          title="Fetch real-time foreign exchange rates from global currency API"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${syncingRates ? 'animate-spin' : ''}`} />
+                          {syncingRates ? 'Syncing FX...' : '⚡ Sync Live FX Rate'}
+                        </button>
+                      </div>
+                      <p className="text-sm text-slate-400 mt-1.5 max-w-2xl leading-relaxed">
+                        {selectedDestination.description}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Live Internet Indexed
+                        </span>
+                        <span>•</span>
+                        <span className="font-mono text-slate-200">
+                          1 {selectedDestination.currency_code} = ₹{selectedDestination.cost_index.exchange_rate_to_inr} INR
+                        </span>
+                        <span>•</span>
+                        <span className="font-mono text-slate-400">
+                          Source: {selectedDestination.cost_index.source}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -977,7 +1041,7 @@ export default function App_WanderBudget_24BAI0226() {
                       setBuilderDestinationId(selectedDestination.destination_id);
                       setActiveTab('builder');
                     }}
-                    className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all shrink-0"
+                    className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all shrink-0 w-full md:w-auto justify-center"
                   >
                     Build Dynamic Budget for {selectedDestination.city_name}
                     <ArrowRight className="w-4 h-4" />
@@ -1222,7 +1286,12 @@ export default function App_WanderBudget_24BAI0226() {
                               <div className="font-mono font-bold text-sm text-emerald-400">
                                 {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
                               </div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                              {selectedDestination.currency_code !== 'INR' && Number(attr.ticket_price_local) > 0 && (
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {selectedDestination.currency_symbol}{Number(attr.ticket_price_local).toLocaleString()} {selectedDestination.currency_code}
+                                </div>
+                              )}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider inline-block mt-0.5 ${
                                 isIncluded ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
                               }`}>
                                 {isIncluded ? 'INCLUDED' : 'DISCARDED'}
