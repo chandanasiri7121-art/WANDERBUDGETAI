@@ -210,6 +210,9 @@ export default function App_WanderBudget_24BAI0226() {
   const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
   const [syncingRates, setSyncingRates] = useState(false);
   const [rateSyncMessage, setRateSyncMessage] = useState('');
+  const [costSummary, setCostSummary] = useState(null);
+  const [costDurationPreset, setCostDurationPreset] = useState('week');
+  const [costStylePreset, setCostStylePreset] = useState('standard');
 
   // Trip Budget Builder State
   const [builderDestinationId, setBuilderDestinationId] = useState('');
@@ -348,6 +351,16 @@ export default function App_WanderBudget_24BAI0226() {
       }
     }
   }, [builderDestinationId, destinations]);
+
+  // Fetch real-time Cost of Living Profile for Selected Destination
+  useEffect(() => {
+    if (selectedDestination?.destination_id) {
+      fetch(`/api/destinations/${selectedDestination.destination_id}/cost-of-living-summary`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data) setCostSummary(data); })
+        .catch(err => console.error('Cost summary fetch error:', err));
+    }
+  }, [selectedDestination?.destination_id]);
 
   // API Call: AI Internet Search & Cost-of-Living Analysis
   const handleAnalyzeCity = async (cityName) => {
@@ -1173,6 +1186,194 @@ export default function App_WanderBudget_24BAI0226() {
                     </div>
                   </div>
                 </div>
+
+                {/* ========================================================================= */}
+                {/* CURRENT COST OF LIVING BUDGET PROFILE FOR SELECTED PARTICULAR PLACE */}
+                {/* ========================================================================= */}
+                {costSummary && (
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/30 rounded-2xl border border-teal-500/30 p-6 space-y-5 shadow-2xl animate-fadeIn">
+                    {/* Section Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-300 text-xs font-mono font-bold border border-teal-500/30">
+                            CURRENT COST OF LIVING PROFILE
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">
+                            Score: {costSummary.cost_index_score}/100
+                          </span>
+                        </div>
+                        <h4 className="text-xl font-bold text-white mt-1 flex items-center gap-2">
+                          <DollarSign className="w-5 h-5 text-teal-400" />
+                          Living Budget for {costSummary.city_name}, {costSummary.country_name}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Real-time synthesized cost of living estimates grounded in current housing, dining, and transit indexes.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                          costSummary.cost_tier === 'VERY_EXPENSIVE'
+                            ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
+                            : costSummary.cost_tier === 'EXPENSIVE'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                            : costSummary.cost_tier === 'MODERATE'
+                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                            : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                        }`}>
+                          {costSummary.tier_label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Live Interactive Budget Controls */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                      {/* Controls Column (7 Cols) */}
+                      <div className="md:col-span-7 space-y-4">
+                        {/* Duration Presets */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                            <span>Select Stay Duration:</span>
+                            <span className="text-teal-400 font-mono text-[11px]">
+                              {costSummary.estimated_budgets[costDurationPreset]?.days} Days
+                            </span>
+                          </label>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {[
+                              { id: 'daily', label: '1 Day', icon: '☀️' },
+                              { id: 'weekend', label: '3 Days', icon: '🏖️' },
+                              { id: 'week', label: '1 Week', icon: '📅' },
+                              { id: 'fortnight', label: '2 Weeks', icon: '✈️' },
+                              { id: 'month', label: '1 Month', icon: '🏠' }
+                            ].map(preset => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => setCostDurationPreset(preset.id)}
+                                className={`py-2 px-1.5 rounded-xl text-xs font-bold border transition-all text-center ${
+                                  costDurationPreset === preset.id
+                                    ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-md shadow-teal-500/20'
+                                    : 'bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-300'
+                                }`}
+                              >
+                                <div className="text-sm">{preset.icon}</div>
+                                <div className="text-[10px] truncate">{preset.label}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Travel Style Selector */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">
+                            Select Living Comfort Tier:
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { id: 'budget', label: 'Budget Living', icon: '🎒', desc: 'Hostels & Local Food' },
+                              { id: 'standard', label: 'Comfort Mid-Range', icon: '🏨', desc: '3-Star & Casual Dining' },
+                              { id: 'luxury', label: 'Luxury Premium', icon: '👑', desc: '5-Star & Fine Dining' }
+                            ].map(style => (
+                              <button
+                                key={style.id}
+                                type="button"
+                                onClick={() => setCostStylePreset(style.id)}
+                                className={`p-2.5 rounded-xl border text-left transition-all ${
+                                  costStylePreset === style.id
+                                    ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-md'
+                                    : 'bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-400'
+                                }`}
+                              >
+                                <div className="text-base">{style.icon}</div>
+                                <div className="font-bold text-xs mt-1 text-slate-200">{style.label}</div>
+                                <div className="text-[9px] text-slate-400">{style.desc}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Result Display Card (5 Cols) */}
+                      <div className="md:col-span-5 bg-slate-950/90 rounded-2xl border border-teal-500/30 p-5 space-y-4 shadow-xl">
+                        <div>
+                          <div className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">
+                            Total Estimated Cost of Living ({costSummary.estimated_budgets[costDurationPreset]?.label})
+                          </div>
+                          <div className="text-3xl font-extrabold text-white mt-1">
+                            ₹{costSummary.estimated_budgets[costDurationPreset]?.[`${costStylePreset}_inr`]?.toLocaleString() || 0}
+                          </div>
+                          {costSummary.currency_code !== 'INR' && (
+                            <div className="text-xs text-teal-400 font-mono mt-0.5">
+                              ≈ {costSummary.currency_symbol}{costSummary.estimated_budgets[costDurationPreset]?.[`${costStylePreset}_local`]?.toLocaleString() || 0} {costSummary.currency_code}
+                            </div>
+                          )}
+                          <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/80 pt-2">
+                            <span>Daily Burn Rate:</span>
+                            <span className="font-mono font-bold text-slate-200">
+                              ₹{costSummary.daily_totals_inr[costStylePreset]?.toLocaleString() || 0} / day
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Transfer Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBuilderDestinationId(costSummary.destination_id);
+                            setDurationDays(costSummary.estimated_budgets[costDurationPreset]?.days || 5);
+                            setTravelStyle(costStylePreset.toUpperCase());
+                            setActiveTab('builder');
+                          }}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-95 shadow-lg shadow-teal-500/20 transition-all"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          Transfer to Interactive Trip Builder
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Monthly Expat & Long-Term Living Grid */}
+                    <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                          <Hotel className="w-3.5 h-3.5 text-sky-400" />
+                          Monthly Living Costs in {costSummary.city_name} (Digital Nomad & Long-Term Living):
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">Based on 30-day index</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                        <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                          <span className="text-slate-400 text-[11px]">👤 Solo Expat / Nomad</span>
+                          <div className="text-base font-bold text-emerald-400 font-mono mt-0.5">
+                            ₹{costSummary.monthly_living.solo_monthly_inr.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {costSummary.currency_code !== 'INR' && `(${costSummary.currency_symbol}${Math.round(costSummary.monthly_living.solo_monthly_inr / costSummary.exchange_rate_to_inr).toLocaleString()})`}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                          <span className="text-slate-400 text-[11px]">👫 Couple Living</span>
+                          <div className="text-base font-bold text-teal-400 font-mono mt-0.5">
+                            ₹{costSummary.monthly_living.couple_monthly_inr.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {costSummary.currency_code !== 'INR' && `(${costSummary.currency_symbol}${Math.round(costSummary.monthly_living.couple_monthly_inr / costSummary.exchange_rate_to_inr).toLocaleString()})`}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                          <span className="text-slate-400 text-[11px]">👨‍👩‍👧‍👦 Family of 4 Living</span>
+                          <div className="text-base font-bold text-violet-400 font-mono mt-0.5">
+                            ₹{costSummary.monthly_living.family4_monthly_inr.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {costSummary.currency_code !== 'INR' && `(${costSummary.currency_symbol}${Math.round(costSummary.monthly_living.family4_monthly_inr / costSummary.exchange_rate_to_inr).toLocaleString()})`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Popular Attractions in this Destination with Include / Discard Toggles */}
                 <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">

@@ -1236,6 +1236,129 @@ app.get('/api/destinations/:id', async (req, res) => {
   }
 });
 
+// Comprehensive Cost of Living Budget Profile for a Particular Destination
+app.get('/api/destinations/:id/cost-of-living-summary', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const destination = await prisma.destination.findUnique({
+      where: { destination_id: id },
+      include: {
+        cost_index: true,
+        attractions: { orderBy: { ticket_price_inr: 'asc' } }
+      }
+    });
+
+    if (!destination || !destination.cost_index) {
+      return res.status(404).json({ error: 'Destination or cost index not found' });
+    }
+
+    const idx = destination.cost_index;
+    const rate = Number(idx.exchange_rate_to_inr || 1.0);
+
+    // Daily Rates in Local & INR
+    const budgetDailyStayLocal = Number(idx.accommodation_budget_night);
+    const standardDailyStayLocal = Number(idx.accommodation_standard_night);
+    const luxuryDailyStayLocal = Number(idx.accommodation_luxury_night);
+
+    const budgetDailyMealLocal = Number(idx.meal_budget_day);
+    const standardDailyMealLocal = Number(idx.meal_standard_day);
+    const luxuryDailyMealLocal = Number(idx.meal_luxury_day);
+
+    const dailyTransitLocal = Number(idx.transit_pass_day);
+
+    // Daily totals per person in INR
+    const dailyBudgetInr = Math.round((budgetDailyStayLocal + budgetDailyMealLocal + dailyTransitLocal) * rate);
+    const dailyStandardInr = Math.round((standardDailyStayLocal + standardDailyMealLocal + dailyTransitLocal) * rate);
+    const dailyLuxuryInr = Math.round((luxuryDailyStayLocal + luxuryDailyMealLocal + dailyTransitLocal) * rate);
+
+    // Cost of Living Index Score (0 to 100 relative to global benchmarks)
+    const costIndexScore = Math.min(100, Math.max(15, Math.round((dailyStandardInr / 22000) * 100)));
+    let costTier = 'MODERATE';
+    let tierLabel = 'Moderate Living Cost';
+    if (costIndexScore >= 80) {
+      costTier = 'VERY_EXPENSIVE';
+      tierLabel = 'Very High Cost (Premium Living)';
+    } else if (costIndexScore >= 55) {
+      costTier = 'EXPENSIVE';
+      tierLabel = 'High Cost (Developed Metropolis)';
+    } else if (costIndexScore >= 35) {
+      costTier = 'MODERATE';
+      tierLabel = 'Moderate Living Cost (Balanced)';
+    } else {
+      costTier = 'BUDGET_FRIENDLY';
+      tierLabel = 'Highly Affordable (Budget Friendly)';
+    }
+
+    // Standard Stay Scenarios (1 Day, 3 Days, 7 Days, 14 Days, 30 Days)
+    const durations = [
+      { key: 'daily', label: '1 Day', days: 1 },
+      { key: 'weekend', label: 'Weekend (3 Days)', days: 3 },
+      { key: 'week', label: '1 Week (7 Days)', days: 7 },
+      { key: 'fortnight', label: '2 Weeks (14 Days)', days: 14 },
+      { key: 'month', label: '1 Month Living (30 Days)', days: 30 }
+    ];
+
+    const estimatedBudgets = {};
+    for (const d of durations) {
+      estimatedBudgets[d.key] = {
+        label: d.label,
+        days: d.days,
+        budget_inr: Math.round(dailyBudgetInr * d.days * 1.10), // includes 10% contingency
+        standard_inr: Math.round(dailyStandardInr * d.days * 1.10),
+        luxury_inr: Math.round(dailyLuxuryInr * d.days * 1.10),
+        budget_local: Math.round((dailyBudgetInr * d.days * 1.10) / rate),
+        standard_local: Math.round((dailyStandardInr * d.days * 1.10) / rate),
+        luxury_local: Math.round((dailyLuxuryInr * d.days * 1.10) / rate)
+      };
+    }
+
+    // Long-Term Monthly Expat / Living Cost Breakdown (30 Days)
+    const monthlyLiving = {
+      solo_monthly_inr: Math.round(dailyStandardInr * 30 * 0.85), // long term stay discount
+      couple_monthly_inr: Math.round(dailyStandardInr * 30 * 1.45),
+      family4_monthly_inr: Math.round(dailyStandardInr * 30 * 2.50),
+      currency: destination.currency_code,
+      currency_symbol: destination.currency_symbol,
+      rate_to_inr: rate
+    };
+
+    res.json({
+      destination_id: destination.destination_id,
+      city_name: destination.city_name,
+      country_name: destination.country_name,
+      currency_code: destination.currency_code,
+      currency_symbol: destination.currency_symbol,
+      exchange_rate_to_inr: rate,
+      cost_index_score: costIndexScore,
+      cost_tier: costTier,
+      tier_label: tierLabel,
+      daily_rates_local: {
+        budget_stay: budgetDailyStayLocal,
+        standard_stay: standardDailyStayLocal,
+        luxury_stay: luxuryDailyStayLocal,
+        budget_meals: budgetDailyMealLocal,
+        standard_meals: standardDailyMealLocal,
+        luxury_meals: luxuryDailyMealLocal,
+        transit: dailyTransitLocal,
+        taxi_per_km: Number(idx.taxi_per_km)
+      },
+      daily_totals_inr: {
+        budget: dailyBudgetInr,
+        standard: dailyStandardInr,
+        luxury: dailyLuxuryInr
+      },
+      estimated_budgets: estimatedBudgets,
+      monthly_living: monthlyLiving,
+      source: idx.source,
+      confidence_score: idx.confidence_score,
+      last_synced_at: idx.last_synced_at
+    });
+  } catch (err) {
+    console.error('Cost of living summary error:', err);
+    res.status(500).json({ error: 'Failed to generate cost of living budget profile' });
+  }
+});
+
 // Dynamic Custom Attraction Creation (Not Hardcoded)
 app.post('/api/destinations/:id/attractions', async (req, res) => {
   try {
