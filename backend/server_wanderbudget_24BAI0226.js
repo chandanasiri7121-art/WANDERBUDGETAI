@@ -239,6 +239,37 @@ const GLOBAL_COST_BENCHMARKS = {
       { name: 'Doddabetta Peak & Telescope House', category: 'Mountain Peak', price: 30, hours: 1.5 },
       { name: 'Pykara Lake Boating & Waterfalls', category: 'Lake & Boating', price: 250, hours: 2.5 }
     ]
+  },
+  'tirupati': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 800, acc_s: 2200, acc_l: 6500, meal_b: 400, meal_s: 950, meal_l: 2200, transit: 350, taxi: 18,
+    attractions: [
+      { name: 'Sri Venkateswara Swamy Temple (Tirumala)', category: 'Pilgrimage & Sacred Temple', price: 300, hours: 4.5 },
+      { name: 'Sri Padmavathi Ammavari Temple (Tiruchanur)', category: 'Heritage Temple', price: 100, hours: 2.0 },
+      { name: 'Chandragiri Historic Fort & Raja Mahal', category: 'Historical Fort', price: 50, hours: 2.5 },
+      { name: 'Kapila Theertham Waterfalls & Shiva Temple', category: 'Waterfalls & Sacred Shrine', price: 0, hours: 1.5 },
+      { name: 'Silathoranam Natural Rock Arch & Chakra Theertham', category: 'Geological Wonder', price: 20, hours: 1.5 },
+      { name: 'Sri Govindaraja Swamy Temple', category: 'Historic Vaishnavite Shrine', price: 50, hours: 2.0 },
+      { name: 'Talakona Waterfalls Eco-Trek (Sri Venkateswara NP)', category: 'Nature & Trekking', price: 50, hours: 4.0 },
+      { name: 'Sri Venkateswara Zoological Park & Safari', category: 'Wildlife Sanctuary', price: 80, hours: 3.0 },
+      { name: 'Srikalahasteeswara Temple (Srikalahasti)', category: 'Pancha Bhoota Shiva Temple', price: 200, hours: 3.0 }
+    ]
+  },
+  'varanasi': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 650, acc_s: 2000, acc_l: 6000, meal_b: 350, meal_s: 850, meal_l: 2100, transit: 300, taxi: 18,
+    attractions: [
+      { name: 'Kashi Vishwanath Jyotirlinga Temple', category: 'Pilgrimage & Sacred Temple', price: 300, hours: 3.0 },
+      { name: 'Dashashwamedh Ghat Evening Ganga Aarti', category: 'Spiritual Ceremony', price: 0, hours: 2.0 },
+      { name: 'Sarnath Buddhist Dhamek Stupa & Archaeological Museum', category: 'Buddhist Heritage', price: 25, hours: 3.0 },
+      { name: 'Assi Ghat Sunrise Boat Cruise & Subah-e-Banaras', category: 'River Cruise', price: 400, hours: 2.0 },
+      { name: 'Manikarnika Ghat Historic Walk', category: 'Cultural Heritage', price: 0, hours: 1.5 }
+    ]
+  },
+  'jaipur': { country: 'India', currency: 'INR', symbol: '₹', rate: 1.0, acc_b: 750, acc_s: 2400, acc_l: 8500, meal_b: 450, meal_s: 1100, meal_l: 2800, transit: 400, taxi: 20,
+    attractions: [
+      { name: 'Amber Palace & Jaigarh Fort', category: 'Historical Fort', price: 200, hours: 4.0 },
+      { name: 'Hawa Mahal (Palace of Winds)', category: 'Iconic Landmark', price: 50, hours: 1.5 },
+      { name: 'City Palace & Chandra Mahal Museum', category: 'Royal Palace', price: 300, hours: 2.5 },
+      { name: 'Jantar Mantar UNESCO Astronomical Observatory', category: 'Astronomical Heritage', price: 200, hours: 2.0 },
+      { name: 'Nahargarh Fort Sunset Viewpoint', category: 'Panoramic Viewpoint', price: 50, hours: 2.0 }
+    ]
   }
 };
 
@@ -469,6 +500,63 @@ app.get('/api/destinations/:id', async (req, res) => {
     res.json(destination);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch destination details' });
+  }
+});
+
+// Dynamic Custom Attraction Creation (Not Hardcoded)
+app.post('/api/destinations/:id/attractions', async (req, res) => {
+  try {
+    const destId = parseInt(req.params.id);
+    const { name, category, ticket_price_inr, avg_duration_hours, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Attraction name is required' });
+    }
+
+    const destination = await prisma.destination.findUnique({
+      where: { destination_id: destId },
+      include: { cost_index: true }
+    });
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    const priceInr = parseFloat(ticket_price_inr || 0);
+    const rate = Number(destination.cost_index?.exchange_rate_to_inr || 1.0);
+    const priceLocal = rate > 0 ? priceInr / rate : priceInr;
+
+    const newAttr = await prisma.attraction.create({
+      data: {
+        destination_id: destId,
+        name: name.trim(),
+        category: category || 'Custom Sightseeing',
+        ticket_price_local: priceLocal,
+        ticket_price_inr: priceInr,
+        avg_duration_hours: parseFloat(avg_duration_hours || 2.0),
+        description: description || 'User-added custom tourist spot'
+      }
+    });
+
+    res.status(201).json({
+      message: 'Tourist attraction successfully added',
+      attraction: newAttr
+    });
+  } catch (err) {
+    console.error('Create attraction error:', err);
+    res.status(500).json({ error: 'Failed to create attraction' });
+  }
+});
+
+// Delete / Discard Attraction from Destination Catalog
+app.delete('/api/attractions/:id', async (req, res) => {
+  try {
+    const attrId = parseInt(req.params.id);
+    await prisma.attraction.delete({ where: { attraction_id: attrId } });
+    res.json({ message: 'Attraction removed from destination catalog' });
+  } catch (err) {
+    console.error('Delete attraction error:', err);
+    res.status(500).json({ error: 'Failed to delete attraction' });
   }
 });
 

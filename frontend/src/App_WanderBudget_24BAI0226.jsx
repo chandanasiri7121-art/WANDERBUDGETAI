@@ -62,6 +62,17 @@ export default function App_WanderBudget_24BAI0226() {
   const [optimizedPlanResult, setOptimizedPlanResult] = useState(null);
   const [optimizingPlan, setOptimizingPlan] = useState(false);
 
+  // Dynamic Custom Attraction Creation State (Not Hardcoded)
+  const [showAddAttrModal, setShowAddAttrModal] = useState(false);
+  const [newAttrForm, setNewAttrForm] = useState({
+    name: '',
+    category: 'Sacred Temple / Shrine',
+    ticket_price_inr: '',
+    avg_duration_hours: '2.0',
+    description: ''
+  });
+  const [addingAttr, setAddingAttr] = useState(false);
+
   // My Trips State
   const [trips, setTrips] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
@@ -155,12 +166,15 @@ export default function App_WanderBudget_24BAI0226() {
     }
   }, [builderDestinationId, durationDays, travelStyle, groupSize, selectedAttractionIds, builderMode, targetWalletBudget, activeTab]);
 
-  // Update selected destination object when builderDestinationId changes
+  // Update selected destination object when builderDestinationId changes & default all its attractions to included
   useEffect(() => {
     if (builderDestinationId && destinations.length > 0) {
       const match = destinations.find(d => d.destination_id === Number(builderDestinationId));
       if (match) {
         setSelectedDestination(match);
+        if (match.attractions && match.attractions.length > 0) {
+          setSelectedAttractionIds(match.attractions.map(a => a.attraction_id));
+        }
       }
     }
   }, [builderDestinationId, destinations]);
@@ -445,11 +459,85 @@ export default function App_WanderBudget_24BAI0226() {
     }
   };
 
-  // Toggle Attraction in Builder
+  // Toggle Attraction in Builder (Include / Discard)
   const toggleAttraction = (id) => {
     setSelectedAttractionIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  const includeAttraction = (id) => {
+    setSelectedAttractionIds(prev => prev.includes(id) ? prev : [...prev, id]);
+  };
+
+  const discardAttraction = (id) => {
+    setSelectedAttractionIds(prev => prev.filter(x => x !== id));
+  };
+
+  const handleIncludeAllAttractions = () => {
+    if (selectedDestination?.attractions) {
+      setSelectedAttractionIds(selectedDestination.attractions.map(a => a.attraction_id));
+    }
+  };
+
+  const handleDiscardAllAttractions = () => {
+    setSelectedAttractionIds([]);
+  };
+
+  // Add Custom Tourist Attraction (Not Hardcoded)
+  const handleAddCustomAttraction = async (destId) => {
+    if (!destId || !newAttrForm.name.trim()) return;
+    try {
+      setAddingAttr(true);
+      const res = await fetch(`/api/destinations/${destId}/attractions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAttrForm)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const createdAttr = data.attraction;
+        setSelectedDestination(prev => ({
+          ...prev,
+          attractions: [...(prev.attractions || []), createdAttr]
+        }));
+        setDestinations(prev => prev.map(d => {
+          if (d.destination_id === destId) {
+            return { ...d, attractions: [...(d.attractions || []), createdAttr] };
+          }
+          return d;
+        }));
+        setSelectedAttractionIds(prev => [...prev, createdAttr.attraction_id]);
+        setNewAttrForm({ name: '', category: 'Sacred Temple / Shrine', ticket_price_inr: '', avg_duration_hours: '2.0', description: '' });
+        setShowAddAttrModal(false);
+      }
+    } catch (err) {
+      console.error('Add custom attraction error:', err);
+    } finally {
+      setAddingAttr(false);
+    }
+  };
+
+  // Delete Attraction Permanently
+  const handleDeleteAttraction = async (attrId, destId) => {
+    try {
+      const res = await fetch(`/api/attractions/${attrId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSelectedAttractionIds(prev => prev.filter(id => id !== attrId));
+        setSelectedDestination(prev => ({
+          ...prev,
+          attractions: (prev.attractions || []).filter(a => a.attraction_id !== attrId)
+        }));
+        setDestinations(prev => prev.map(d => {
+          if (d.destination_id === destId) {
+            return { ...d, attractions: (d.attractions || []).filter(a => a.attraction_id !== attrId) };
+          }
+          return d;
+        }));
+      }
+    } catch (err) {
+      console.error('Delete attraction error:', err);
+    }
   };
 
   return (
@@ -632,13 +720,17 @@ export default function App_WanderBudget_24BAI0226() {
                 {/* Quick Destination Pills */}
                 <div className="flex flex-wrap items-center gap-2 pt-2">
                   <span className="text-xs text-slate-400">Popular:</span>
-                  {['Tokyo', 'Paris', 'Bali', 'Goa', 'Zurich', 'Seoul', 'Manali'].map(city => (
+                  {['Tirupati', 'Tokyo', 'Paris', 'Bali', 'Goa', 'Zurich', 'Seoul', 'Manali'].map(city => (
                     <button
                       key={city}
                       onClick={() => handleAnalyzeCity(city)}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700/60 text-xs text-slate-300 transition-colors"
+                      className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                        city === 'Tirupati'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                          : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700/60 text-slate-300'
+                      }`}
                     >
-                      {city}
+                      {city === 'Tirupati' ? '🛕 Tirupati' : city}
                     </button>
                   ))}
                 </div>
@@ -813,50 +905,159 @@ export default function App_WanderBudget_24BAI0226() {
                   </div>
                 </div>
 
-                {/* Popular Attractions in this Destination */}
+                {/* Popular Attractions in this Destination with Include / Discard Toggles */}
                 <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 space-y-4 shadow-xl">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
                     <div>
                       <h4 className="text-lg font-bold text-white flex items-center gap-2">
                         <Camera className="w-5 h-5 text-violet-400" />
-                        Indexed Attractions & Ticket Prices
+                        Attractions for {selectedDestination.city_name} ({selectedDestination.attractions?.length || 0} Places)
                       </h4>
-                      <p className="text-xs text-slate-400">Real admission fees automatically fetched and converted to INR</p>
+                      <p className="text-xs text-slate-400">You can Include or Discard any tourist spot to customize your trip budget</p>
                     </div>
-                    <span className="text-xs font-mono text-slate-400">
-                      {selectedDestination.attractions?.length || 0} places discovered
-                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleIncludeAllAttractions}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-xs font-bold transition-all"
+                      >
+                        ✓ Include All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDiscardAllAttractions}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750 text-xs font-bold transition-all"
+                      >
+                        ✕ Discard All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddAttrModal(prev => !prev)}
+                        className="px-3 py-1 rounded-lg bg-gradient-to-r from-violet-500 to-indigo-500 text-white text-xs font-bold shadow-md hover:opacity-90 transition-all flex items-center gap-1.5"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        + Add Custom Tourist Spot
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {selectedDestination.attractions?.map(attr => (
-                      <div
-                        key={attr.attraction_id}
-                        className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between hover:border-slate-700 transition-all"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="font-semibold text-sm text-slate-200">{attr.name}</div>
-                          <div className="text-xs text-slate-400 flex items-center gap-2">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">
-                              {attr.category}
-                            </span>
-                            <span>•</span>
-                            <span>~{attr.avg_duration_hours} hrs</span>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="font-mono font-bold text-sm text-emerald-400">
-                            {Number(attr.ticket_price_local) === 0 ? 'FREE' : `${selectedDestination.currency_symbol}${Number(attr.ticket_price_local).toLocaleString()}`}
-                          </div>
-                          {Number(attr.ticket_price_local) > 0 && (
-                            <div className="text-[10px] text-slate-500 font-mono">
-                              (₹{Number(attr.ticket_price_inr).toLocaleString()})
-                            </div>
-                          )}
-                        </div>
+                  {/* Add Custom Attraction Inline Form (Not Hardcoded) */}
+                  {showAddAttrModal && (
+                    <div className="bg-slate-950 p-4 rounded-xl border border-violet-500/40 space-y-3 animate-fadeIn">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-violet-300">Add New Tourist Attraction to {selectedDestination.city_name} (Not Hardcoded)</span>
+                        <button type="button" onClick={() => setShowAddAttrModal(false)} className="text-slate-500 hover:text-slate-300">✕ Close</button>
                       </div>
-                    ))}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                        <input
+                          type="text"
+                          placeholder="Attraction Name (e.g. Alipiri Footpath Walk)"
+                          value={newAttrForm.name}
+                          onChange={(e) => setNewAttrForm(prev => ({ ...prev, name: e.target.value }))}
+                          className="sm:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Category (e.g. Trek / Temple)"
+                          value={newAttrForm.category}
+                          onChange={(e) => setNewAttrForm(prev => ({ ...prev, category: e.target.value }))}
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Ticket Price (INR)"
+                          value={newAttrForm.ticket_price_inr}
+                          onChange={(e) => setNewAttrForm(prev => ({ ...prev, ticket_price_inr: e.target.value }))}
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={addingAttr || !newAttrForm.name.trim()}
+                        onClick={() => handleAddCustomAttraction(selectedDestination.destination_id)}
+                        className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold"
+                      >
+                        {addingAttr ? 'Adding Attraction...' : 'Save & Include in Trip'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Attractions List with Include / Discard Buttons */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedDestination.attractions?.map(attr => {
+                      const isIncluded = selectedAttractionIds.includes(attr.attraction_id);
+                      return (
+                        <div
+                          key={attr.attraction_id}
+                          className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 transition-all ${
+                            isIncluded
+                              ? 'bg-slate-950/80 border-emerald-500/40 shadow-sm'
+                              : 'bg-slate-950/40 border-slate-800/80 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <div className={`font-semibold text-sm ${isIncluded ? 'text-slate-100 font-bold' : 'text-slate-400 line-through'}`}>
+                                {attr.name}
+                              </div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">
+                                  {attr.category}
+                                </span>
+                                <span>•</span>
+                                <span>~{attr.avg_duration_hours} hrs</span>
+                              </div>
+                              {attr.description && (
+                                <p className="text-[11px] text-slate-400 line-clamp-1">{attr.description}</p>
+                              )}
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <div className="font-mono font-bold text-sm text-emerald-400">
+                                {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
+                              </div>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                isIncluded ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                              }`}>
+                                {isIncluded ? 'INCLUDED' : 'DISCARDED'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-slate-800/60 pt-2 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              {isIncluded ? (
+                                <button
+                                  type="button"
+                                  onClick={() => discardAttraction(attr.attraction_id)}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-bold transition-all"
+                                >
+                                  ✕ Discard from Trip
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => includeAttraction(attr.attraction_id)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition-all"
+                                >
+                                  ✓ Include in Trip
+                                </button>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAttraction(attr.attraction_id, selectedDestination.destination_id)}
+                              className="text-slate-500 hover:text-rose-400 text-[11px]"
+                              title="Delete permanently from catalog"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1025,39 +1226,76 @@ export default function App_WanderBudget_24BAI0226() {
                       </div>
                     </div>
 
-                    {/* 5. Select Attractions / Places */}
+                    {/* 5. Select Attractions / Places with Include & Discard Action Toggles */}
                     {selectedDestination && selectedDestination.attractions && selectedDestination.attractions.length > 0 && (
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <div className="flex justify-between items-center text-xs">
+                        <div className="flex flex-wrap items-center justify-between text-xs gap-2">
                           <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                             <Camera className="w-3.5 h-3.5 text-violet-400" />
-                            Planned Places to Visit ({selectedAttractionIds.length})
+                            Tourist Spots ({selectedAttractionIds.length} of {selectedDestination.attractions.length} Included)
                           </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleIncludeAllAttractions}
+                              className="text-[10px] font-bold text-emerald-400 hover:underline"
+                            >
+                              Include All
+                            </button>
+                            <span className="text-slate-600">•</span>
+                            <button
+                              type="button"
+                              onClick={handleDiscardAllAttractions}
+                              className="text-[10px] font-bold text-rose-400 hover:underline"
+                            >
+                              Discard All
+                            </button>
+                          </div>
                         </div>
-                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+
+                        <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
                           {selectedDestination.attractions.map(attr => {
                             const isSelected = selectedAttractionIds.includes(attr.attraction_id);
                             return (
                               <div
                                 key={attr.attraction_id}
-                                onClick={() => toggleAttraction(attr.attraction_id)}
-                                className={`p-2 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                                className={`p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
                                   isSelected
-                                    ? 'bg-violet-500/15 border-violet-500 text-slate-200'
-                                    : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                                    ? 'bg-slate-950/80 border-emerald-500/40 text-slate-200'
+                                    : 'bg-slate-950/40 border-slate-800/80 text-slate-400 opacity-60'
                                 }`}
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
-                                    isSelected ? 'bg-violet-500 text-white' : 'border border-slate-700'
-                                  }`}>
-                                    {isSelected && <Check className="w-3 h-3" />}
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                                    <span className={`font-semibold ${isSelected ? 'text-slate-200' : 'line-through text-slate-500'}`}>
+                                      {attr.name}
+                                    </span>
                                   </div>
-                                  <span className="font-medium text-slate-300">{attr.name}</span>
+                                  <div className="text-[10px] text-slate-400">
+                                    {attr.category} • {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
+                                  </div>
                                 </div>
-                                <span className="font-mono text-violet-300 text-[11px]">
-                                  {Number(attr.ticket_price_inr) === 0 ? 'FREE' : `₹${Number(attr.ticket_price_inr).toLocaleString()}`}
-                                </span>
+
+                                <div className="flex items-center gap-2">
+                                  {isSelected ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => discardAttraction(attr.attraction_id)}
+                                      className="px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold"
+                                    >
+                                      ✕ Discard
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => includeAttraction(attr.attraction_id)}
+                                      className="px-2 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold"
+                                    >
+                                      ✓ Include
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
