@@ -1,0 +1,232 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Roles Master Table
+model Role {
+  role_id   Int      @id @default(autoincrement())
+  role_name String   @unique @db.VarChar(50) // ADMIN, STUDENT, EDUCATOR
+  users     User[]
+
+  @@map("roles")
+}
+
+// 2. Strict Single Users Table (Compliance Requirement)
+model User {
+  user_id        Int                 @id @default(autoincrement())
+  reg_no         String              @unique @db.VarChar(50)
+  full_name      String              @db.VarChar(150)
+  email          String              @unique @db.VarChar(150)
+  password_hash  String              @db.VarChar(255)
+  oauth_provider String?             @default("LOCAL") @db.VarChar(50)
+  role_id        Int
+  created_at     DateTime            @default(now())
+
+  role           Role                @relation(fields: [role_id], references: [role_id], onDelete: Restrict)
+  attempts       AssessmentAttempt[]
+  reports        SkillGapReport[]
+  audit_logs     AuditLog[]
+
+  @@index([email])
+  @@index([reg_no])
+  @@map("users")
+}
+
+// 3. Technical Skills Catalogue
+model Skill {
+  skill_id            Int                 @id @default(autoincrement())
+  skill_code          String              @unique @db.VarChar(50)
+  skill_name          String              @db.VarChar(150)
+  category            String              @db.VarChar(100) // Database, Backend, Data Analytics, Machine Learning
+
+  prerequisites       SkillPrerequisite[] @relation("TargetSkill")
+  prerequisite_for    SkillPrerequisite[] @relation("PrereqSkill")
+  job_requirements    JobRequirement[]
+  questions           AssessmentQuestion[]
+  attempts            AssessmentAttempt[]
+  gap_details         SkillGapDetail[]
+  resources           LearningResource[]
+
+  @@index([category])
+  @@map("skills")
+}
+
+// 4. Skill Prerequisites (Self-referencing M:N DAG)
+model SkillPrerequisite {
+  prerequisite_id      Int      @id @default(autoincrement())
+  skill_id             Int
+  prerequisite_skill_id Int
+
+  skill                Skill    @relation("TargetSkill", fields: [skill_id], references: [skill_id], onDelete: Cascade)
+  prerequisite_skill   Skill    @relation("PrereqSkill", fields: [prerequisite_skill_id], references: [skill_id], onDelete: Cascade)
+
+  @@unique([skill_id, prerequisite_skill_id])
+  @@map("skill_prerequisites")
+}
+
+// 5. Job Roles Master
+model JobRole {
+  job_role_id Int              @id @default(autoincrement())
+  title       String           @unique @db.VarChar(150)
+  description String           @db.Text
+  domain      String           @db.VarChar(100)
+  versions    JobRoleVersion[]
+
+  @@map("job_roles")
+}
+
+// 6. Job Role Versions (Version-Aware Industry Requirements)
+model JobRoleVersion {
+  version_id     Int              @id @default(autoincrement())
+  job_role_id    Int
+  version_number String           @db.VarChar(20) // e.g. "v1.0", "v2.0"
+  version_label  String           @db.VarChar(100) // e.g. "v1.0 Aug 2026", "v2.0 Oct 2026"
+  effective_date DateTime         @default(now())
+  is_active      Boolean          @default(true)
+
+  job_role       JobRole          @relation(fields: [job_role_id], references: [job_role_id], onDelete: Cascade)
+  requirements   JobRequirement[]
+  reports        SkillGapReport[]
+
+  @@unique([job_role_id, version_number])
+  @@map("job_role_versions")
+}
+
+// 7. Versioned Job Skill Requirements
+model JobRequirement {
+  requirement_id       Int            @id @default(autoincrement())
+  version_id           Int
+  skill_id             Int
+  required_proficiency Int            // 1 to 5
+  importance_weight    Int            // 1 to 5
+
+  version              JobRoleVersion @relation(fields: [version_id], references: [version_id], onDelete: Cascade)
+  skill                Skill          @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+
+  @@unique([version_id, skill_id])
+  @@map("job_requirements")
+}
+
+// 8. Assessment Questions (Gemini AI Dynamic MCQs)
+model AssessmentQuestion {
+  question_id    Int                @id @default(autoincrement())
+  skill_id       Int
+  question_text  String             @db.Text
+  option_a       String             @db.VarChar(255)
+  option_b       String             @db.VarChar(255)
+  option_c       String             @db.VarChar(255)
+  option_d       String             @db.VarChar(255)
+  correct_option String             @db.Char(1) // 'A', 'B', 'C', 'D'
+  explanation    String             @db.Text
+  generated_by   String             @default("GEMINI_AI") @db.VarChar(50)
+  created_at     DateTime           @default(now())
+
+  skill          Skill              @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+  answers        AssessmentAnswer[]
+
+  @@index([skill_id])
+  @@map("assessment_questions")
+}
+
+// 9. Assessment Attempts (Evaluation & Proficiency)
+model AssessmentAttempt {
+  attempt_id           Int                @id @default(autoincrement())
+  user_id              Int
+  skill_id             Int
+  score_percent        Decimal            @db.Decimal(5, 2)
+  assessed_proficiency Int                @default(0) // Populated by PostgreSQL Trigger
+  ai_analysis_feedback String?            @db.Text
+  attempted_at         DateTime           @default(now())
+
+  user                 User               @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  skill                Skill              @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+  answers              AssessmentAnswer[]
+
+  @@index([user_id, skill_id])
+  @@map("assessment_attempts")
+}
+
+// 10. Granular Assessment Answers
+model AssessmentAnswer {
+  answer_id       Int                @id @default(autoincrement())
+  attempt_id      Int
+  question_id     Int
+  selected_option String             @db.Char(1)
+  is_correct      Boolean
+
+  attempt         AssessmentAttempt  @relation(fields: [attempt_id], references: [attempt_id], onDelete: Cascade)
+  question        AssessmentQuestion @relation(fields: [question_id], references: [question_id], onDelete: Cascade)
+
+  @@index([attempt_id])
+  @@map("assessment_answers")
+}
+
+// 11. Version-Locked Skill Gap Reports
+model SkillGapReport {
+  report_id             Int              @id @default(autoincrement())
+  user_id               Int
+  version_id            Int
+  overall_readiness_pct Decimal          @db.Decimal(5, 2)
+  generated_at          DateTime         @default(now())
+
+  user                  User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  version               JobRoleVersion   @relation(fields: [version_id], references: [version_id], onDelete: Cascade)
+  details               SkillGapDetail[]
+
+  @@index([user_id, version_id])
+  @@map("skill_gap_reports")
+}
+
+// 12. Detailed Skill Gap Metrics per Skill
+model SkillGapDetail {
+  detail_id             Int            @id @default(autoincrement())
+  report_id             Int
+  skill_id              Int
+  required_proficiency  Int
+  assessed_proficiency  Int
+  gap_score             Int            // max(required - assessed, 0)
+  priority_score        Decimal        @db.Decimal(5, 2) // importance * (gap / 5.0)
+  recommendation_reason String         @db.Text
+
+  report                SkillGapReport @relation(fields: [report_id], references: [report_id], onDelete: Cascade)
+  skill                 Skill          @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+
+  @@index([report_id])
+  @@map("skill_gap_details")
+}
+
+// 13. Curated Learning Resources for Adaptive Roadmap
+model LearningResource {
+  resource_id      Int    @id @default(autoincrement())
+  skill_id         Int
+  title            String @db.VarChar(200)
+  resource_url     String @db.VarChar(500)
+  difficulty_level String @db.VarChar(50) // Beginner, Intermediate, Advanced
+  est_minutes      Int
+
+  skill            Skill  @relation(fields: [skill_id], references: [skill_id], onDelete: Cascade)
+
+  @@index([skill_id])
+  @@map("learning_resources")
+}
+
+// 14. System & Security Audit Logs (Fired by Triggers & Actions)
+model AuditLog {
+  log_id     Int      @id @default(autoincrement())
+  user_id    Int?
+  action     String   @db.VarChar(100)
+  table_name String   @db.VarChar(100)
+  record_id  Int?
+  details    String   @db.Text
+  created_at DateTime @default(now())
+
+  user       User?    @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@map("audit_logs")
+}
