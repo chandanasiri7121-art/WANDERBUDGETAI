@@ -1,106 +1,84 @@
-# REST API Documentation: SkillGap Radar
+# REST API Documentation: WanderBudget AI
 
+**Course:** BCSE302P Database Systems Lab  
 **Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Dr. V. SIVAKUMAR  
-**Base URL:** `http://localhost:5001/api`  
-**Authentication:** `Authorization: Bearer <JWT_TOKEN>`
+**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+**Base URL:** `http://localhost:5001/api`
 
 ---
 
-## 1. Authentication Endpoints
+## 1. Authentication & RBAC Endpoints
 
 ### `POST /api/auth/register`
-Creates a new student account.
-- **Request Body:** `{ full_name, email, reg_no, password }`
-- **Response (201):** `{ message, user_id, email, reg_no }`
+* **Description:** Register a new traveler into the single `users` table.
+* **Payload:** `{ "reg_no": "24BAI0226", "full_name": "...", "email": "...", "password": "..." }`
+* **Response:** `{ "message": "User registered successfully", "user": { ... } }`
 
 ### `POST /api/auth/login`
-Authenticates a student or administrator.
-- **Request Body:** `{ emailOrRegNo, password }`
-- **Response (200):** `{ token, user: { user_id, full_name, email, reg_no, role } }`
+* **Description:** Authenticate traveler or admin, returning a cryptographically signed JWT.
+* **Payload:** `{ "login_id": "24BAI0226", "password": "..." }`
+* **Response:** `{ "token": "<JWT_TOKEN>", "user": { "user_id": 1, "role": "TRAVELER", ... } }`
 
-### `GET /api/auth/me`
-Retrieves the currently authenticated user's profile.
-
----
-
-## 2. Career Roles & Versioning
-
-### `GET /api/career-roles`
-Lists all career roles with their active and historical versions.
-
-### `GET /api/career-roles/:roleId/requirements`
-Retrieves required competencies, target proficiencies, and importance weights for a role.
+### `POST /api/auth/google`
+* **Description:** Sign in with Google OAuth 2.0 with account linking into the single `users` table.
 
 ---
 
-## 3. Assessments & AI Diagnostic Engine
+## 2. Destinations & Live Cost Benchmarks
 
-### `POST /api/ai/generate-quiz`
-Generates a 3-question diagnostic quiz for a skill, saved directly into `assessment_questions`.
-- **Request Body:** `{ skill_id, difficulty }`
-- **Response (200):** `{ skill_id, skill_name, questions: [...] }` (Correct answers withheld from client)
+### `GET /api/destinations`
+* **Description:** Fetch all destinations with joined cost of living benchmarks and attractions count.
+* **Query Params:** `continent`, `search`, `page`, `limit`
 
-### `POST /api/ai/submit-and-analyze`
-Grades submission, invokes trigger `trg_before_assessment`, executes procedure `sp_generate_gap_report`, and returns updated readiness.
-- **Request Body:** `{ skill_id, version_id, answers: [{ question_id, selected_option }] }`
+### `GET /api/destinations/:id`
+* **Description:** Fetch detailed destination profile, cost index tiers, and all available attractions.
 
----
-
-## 4. Skill Gap Analysis & Analytical View
-
-### `GET /api/skill-gaps/report/:versionId`
-Fetches detailed competency gaps, priority scores, and overall readiness percentage.
-
-### `GET /api/roadmap/:versionId`
-Queries PostgreSQL analytical view `vw_student_roadmap_24BAI0226_SaiSiriChandana` with pagination, search, and category filtering.
+### `POST /api/destinations/calculate-budget`
+* **Description:** Invokes PostgreSQL stored procedure `sp_calculate_trip_budget`.
+* **Payload:** `{ "destination_id": 1, "duration_days": 5, "travel_style": "STANDARD", "group_size": 2 }`
+* **Response:** Array of 5 calculated categories with allocated INR, daily rates, and calculation basis.
 
 ---
 
-## 5. Standout Telemetry & Graph Intelligence
+## 3. Trip Planning & ACID Transactions
 
-### `GET /api/skills/prerequisite-graph`
-Returns nodes and directed prerequisite edges for the competency DAG.
+### `POST /api/trips`
+* **Description:** Atomically creates a trip and initializes 5 budget breakdown rows via `prisma.$transaction`.
+* **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+* **Payload:** `{ "destination_id": 1, "title": "Tokyo Summer", "duration_days": 5, "travel_style": "STANDARD", "group_size": 2 }`
 
-### `GET /api/skill-gaps/multi-role-comparison`
-Computes comparative readiness across all active career roles.
+### `GET /api/trips`
+* **Description:** List trips created by the authenticated user with utilization status and alert indicators.
 
-### `GET /api/assessments/progress-timeline`
-Retrieves the student's historical assessment trajectory chronologically.
+### `GET /api/trips/:id`
+* **Description:** Get full trip details with itinerary places, breakdown categories, and logged expenses.
 
----
-
-## 6. SkillGap Radar 360: What-If Career Simulator
-
-### `POST /api/simulator/calculate`
-Calculates hypothetical readiness gains, gap reductions, study hours, and cross-role spillover.
-- **Request Body:** `{ role_version_id, simulated_skills: [{ skill_id, simulated_level }] }`
-- **Response (200):** `{ baseline_readiness_pct, simulated_readiness_pct, readiness_gain_pct, total_estimated_study_hours, prerequisite_alerts, cross_role_impact, skills }`
-
-### `POST /api/simulator/save-scenario`
-Persists a named hypothetical scenario in `simulation_scenarios` without mutating actual assessment rows.
-
-### `GET /api/simulator/saved-scenarios`
-Lists all saved scenarios for the authenticated student.
-
-### `GET /api/simulator/shared-skill-optimization`
-Ranks cross-cutting competencies by multi-role leverage score.
+### `POST /api/trips/:id/places`
+* **Description:** Schedule an attraction into a trip itinerary day.
 
 ---
 
-## 7. Administrator Control & Profiler
+## 4. Expenses & Overrun Trigger Alerts
 
-### `POST /api/admin/requirements`
-Atomically updates role competency criteria via ACID transaction and logs to `audit_logs`.
+### `POST /api/trips/:id/expenses`
+* **Description:** Log a travel expense. Automatically fires PostgreSQL trigger `trg_check_budget_overrun`.
+* **Payload:** `{ "category_id": 1, "expense_name": "Hotel Shinjuku", "amount_inr": 12000, "payment_method": "CARD" }`
 
-### `GET /api/admin/query-benchmarks`
-Executes `EXPLAIN (ANALYZE, BUFFERS)` on analytical view and indexed queries, returning real execution times and shared hit buffer blocks.
+### `GET /api/trips/:id/alerts`
+* **Description:** Retrieve trigger-generated alerts (`WARNING_80_PERCENT`, `BUDGET_EXCEEDED`, `TRIP_OVERRUN`).
+
+---
+
+## 5. Analytical Views & Admin Diagnostics
+
+### `GET /api/views/trip-summary`
+* **Description:** Queries SQL view `v_trip_budget_summary`.
+
+### `GET /api/views/category-variance/:tripId`
+* **Description:** Queries SQL view `v_trip_category_variance`.
+
+### `GET /api/admin/system-health`
+* **Description:** Administrative telemetry (PostgreSQL pool status, table row counts, uptime, student register number). Requires `role = 'ADMIN'`.
 
 ### `GET /api/admin/audit-logs`
-Retrieves paginated tamper-evident security audit logs.
-
-### `POST /api/admin/job-description-analysis`
-Parses unstructured job description text, matching candidate skills to the canonical catalogue.
-
-### `POST /api/admin/job-description-analysis/approve`
-Publishes a new requirement version from human-reviewed job description requirements.
+* **Description:** Read immutable audit trail records from `audit_logs` table.

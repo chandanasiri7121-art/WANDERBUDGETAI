@@ -1,4 +1,4 @@
-name: SkillGap Radar CI/CD Pipeline - Garudaiahgari Sai Siri Chandana (24BAI0226)
+name: WanderBudget AI CI/CD Pipeline - Garudaiahgari Sai Siri Chandana (24BAI0226)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    name: Build, Lint & Prisma Validation (24BAI0226)
+    name: Build, Lint & Test (24BAI0226)
     runs-on: ubuntu-latest
 
     services:

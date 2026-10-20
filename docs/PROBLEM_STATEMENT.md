@@ -1,22 +1,23 @@
-# Problem Statement: SkillGap Radar
+# Problem Statement: WanderBudget AI
 
+**Course:** BCSE302P Database Systems Lab  
 **Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Dr. V. SIVAKUMAR  
+**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
 
 ---
 
-## 1. The Core Problem
-Undergraduate engineering students and early-career job applicants face an acute mismatch between university curriculum outcomes and rapidly evolving industry technical requirements. While thousands of online job descriptions and learning platforms exist, students struggle with three fundamental obstacles:
+## 1. Context & Background
+Planning leisure or educational travel requires balancing diverse expenditure streams: accommodation, dining, intra-city transit, sightseeing attraction admissions, and contingency buffers. In international destinations, this is further compounded by foreign currency exchange rate conversions, differing local standards of living, and unpredictable inflation.
 
-1. **Unverified Self-Perception vs. Industry Criteria**: Most career platforms rely on self-reported checkboxes (e.g., "Intermediate SQL" on LinkedIn). Students lack an objective, mathematically rigorous method to evaluate their demonstrated technical competency against current industry baselines.
-2. **Static Snapshots without Longitudinal Tracking**: Traditional career guidance treats skill acquisition as a static point-in-time assessment. When industry requirements evolve (e.g., transition from monolithic SQL to distributed transactions), students have no version-aware mechanism to see how older assessments relate to new standards.
-3. **Absence of Hypothetical "What-If" Planning**: When planning their final semester or summer internship preparation, students constantly ask: *"If I dedicate 4 weeks to mastering Database Indexing and Python, will that single effort qualify me for both Backend Engineering and Data Analytics?"* Existing systems do not offer an isolated sandbox to model hypothetical gains without tampering with actual assessment evidence.
+## 2. Research Gap & Deficiencies in Existing Systems
+1. **Disconnected Travel Booking Platforms**: Commercial engines (MakeMyTrip, Booking.com, Airbnb) focus solely on static pre-trip bookings (hotels and flights). They provide zero predictive ground expense intelligence (e.g., how much will 5 days of meals, metro passes, and museum entries cost in Tokyo vs. Paris for a student?).
+2. **Absence of Real-Time Dynamic Modeling**: Static tourism guides and blogs become outdated rapidly as local transport tariffs and currency exchange rates fluctuate.
+3. **Lack of Automated Budget Controls**: Travelers routinely face unexpected budget overruns because traditional applications lack automated threshold warning triggers that alert users when specific categories (e.g., dining or shopping) cross allocated boundaries.
+4. **Relational Data Management Challenges**: Most student-built projects simplify travel planning into non-relational or unnormalized models without ACID transaction guarantees, leading to inconsistent state between total budgets and category breakdowns.
 
----
-
-## 2. Research & Academic Scope
-In the context of the **BCSE302P Database Systems Lab**, this project solves these problems using formal database engineering principles:
-- **Preventing Self-Reported Bias**: Proficiency values ($1 \le P \le 5$) are strictly calculated via database trigger `trg_before_assessment_24BAI0226_SaiSiriChandana` based on actual assessment attempt scores.
-- **Relational Integrity & 3NF Normalization**: 20 normalized tables model career hierarchies, versioning, prerequisite graphs, learning assets, and audit logs without data anomalies.
-- **Deterministic Prioritization**: Avoids black-box predictive claims; priorities and readiness scores are computed transparently via stored procedures using well-documented formulas.
-- **Isolated Simulation Sandbox**: Hypothetical changes are persisted in dedicated tables (`simulation_scenarios`, `simulation_skill_changes`), preserving historical assessment attempts from corruption.
+## 3. The Proposed Solution: WanderBudget AI
+**WanderBudget AI** addresses these challenges by implementing an enterprise relational database system engineered on PostgreSQL 16 and Prisma ORM:
+* **Dynamic Budget Calculation Engine**: A native stored procedure (`sp_calculate_trip_budget`) that generates itemized budgets dynamically using destination benchmarks, party size, and travel style.
+* **Proactive Budget Overrun Triggers**: An automated trigger (`trg_check_budget_overrun`) executing after every expense insert/update, updating totals and creating real-time alert logs at 80% and 100% threshold crossings.
+* **Single Users Table RBAC**: Adherence to database best practices by managing all roles (`TRAVELER` and `ADMIN`) within a single table with secure password hashing and OAuth integration.
+* **What-If Simulation Sandbox**: A dynamic interactive interface enabling travelers to explore cost variations across styles and durations without mutating permanent database records.
