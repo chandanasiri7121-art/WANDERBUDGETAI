@@ -4,6 +4,7 @@ build/
 .env
 *.dump
 *.sql.bak
+backups/*.sql
 .DS_Store
 .prisma/client
 frontend/dist/
