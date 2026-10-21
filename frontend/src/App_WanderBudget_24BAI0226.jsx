@@ -1123,21 +1123,7 @@ Ask me anything like:
           </div>
         </div>
 
-        {/* Application Status Badge */}
-        <div className="hidden lg:flex items-center gap-4 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold text-slate-200">WanderBudget AI</span>
-          </div>
-          <div className="h-4 w-px bg-slate-800" />
-          <div className="text-slate-400">
-            System: <span className="text-emerald-400 font-medium">Online</span>
-          </div>
-          <div className="h-4 w-px bg-slate-800" />
-          <div className="text-slate-400">
-            Mode: <span className="text-slate-200 font-medium">Production Ready</span>
-          </div>
-        </div>
+
 
         <div className="flex items-center gap-3">
           {/* AI Search Engine & API Keys Button */}
@@ -3733,49 +3719,7 @@ Ask me anything like:
               </div>
             </div>
 
-            {/* 2. Switch Academic Roles (RBAC Demonstration) */}
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
-              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-                Pre-Configured Role Profiles (RBAC)
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={authLoading || (user?.role === 'TRAVELER' && user?.oauth_provider === 'LOCAL')}
-                  onClick={() => handleSwitchAccount('TRAVELER')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    user?.role === 'TRAVELER' && user?.oauth_provider === 'LOCAL'
-                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                      : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <div className="text-xs font-bold flex items-center justify-between">
-                    <span>Traveler Account</span>
-                    {user?.role === 'TRAVELER' && user?.oauth_provider === 'LOCAL' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">Standard Traveler</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Trip Planner & Budget Builder</div>
-                </button>
 
-                <button
-                  type="button"
-                  disabled={authLoading || user?.role === 'ADMIN'}
-                  onClick={() => handleSwitchAccount('ADMIN')}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    user?.role === 'ADMIN'
-                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                      : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <div className="text-xs font-bold flex items-center justify-between">
-                    <span>Administrator</span>
-                    {user?.role === 'ADMIN' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">System Admin</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Full Management & Audit Access</div>
-                </button>
-              </div>
-            </div>
 
             {/* Active Session Info */}
             <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
