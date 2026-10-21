@@ -9,11 +9,30 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'WanderBudget_SuperSecureJWTSecret_2026';
+
+// In-memory OTP store: { email: { otp, expiresAt, attempts } }
+const otpStore = new Map();
+
+// Nodemailer SMTP transporter (Gmail)
+const smtpTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+// Helper: generate 6-digit OTP
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 
 BigInt.prototype.toJSON = function() {
   return Number(this);
@@ -297,7 +316,140 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
+
+// ============================================================================
+// OTP EMAIL AUTHENTICATION (SMTP via Gmail)
+// ============================================================================
+
+// POST /api/auth/send-otp — generate and email a 6-digit OTP
+app.post('/api/auth/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Rate-limit: only allow a new OTP every 60 seconds
+    const existing = otpStore.get(cleanEmail);
+    if (existing && existing.expiresAt - 4 * 60 * 1000 > Date.now()) {
+      const waitSec = Math.ceil((existing.expiresAt - 4 * 60 * 1000 - Date.now()) / 1000);
+      return res.status(429).json({ error: `Please wait ${waitSec}s before requesting a new OTP` });
+    }
+
+    // Check if email exists in users table
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email. Please sign up first.' });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    otpStore.set(cleanEmail, { otp, expiresAt, attempts: 0 });
+
+    // Send OTP email via SMTP (Gmail)
+    await smtpTransporter.sendMail({
+      from: `"WanderBudget AI" <${process.env.SMTP_USER}>`,
+      to: cleanEmail,
+      subject: '🔐 Your WanderBudget AI Login OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0f172a; color: #e2e8f0; padding: 32px; border-radius: 16px; border: 1px solid #1e293b;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #10b981; font-size: 24px; margin: 0;">WanderBudget AI</h1>
+            <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Dynamic Trip Budget Builder</p>
+          </div>
+          <p style="color: #94a3b8; font-size: 14px;">Hello <strong style="color: #e2e8f0;">${user.full_name}</strong>,</p>
+          <p style="color: #94a3b8; font-size: 14px;">Use the one-time password below to log in. It expires in <strong style="color: #10b981;">5 minutes</strong>.</p>
+          <div style="text-align: center; margin: 28px 0;">
+            <div style="display: inline-block; background: #0f172a; border: 2px solid #10b981; border-radius: 12px; padding: 18px 36px;">
+              <span style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #10b981; font-family: monospace;">${otp}</span>
+            </div>
+          </div>
+          <p style="color: #475569; font-size: 12px; text-align: center;">Do not share this OTP with anyone. It is valid for one-time use only.</p>
+          <hr style="border: none; border-top: 1px solid #1e293b; margin: 24px 0;" />
+          <p style="color: #334155; font-size: 11px; text-align: center;">WanderBudget AI • Database Systems Lab Project • BCSE302P</p>
+        </div>
+      `
+    });
+
+    await createAuditLog(user.user_id, 'OTP_SENT', 'USER', user.user_id, `OTP sent to ${cleanEmail}`, req);
+
+    res.json({ message: `OTP sent to ${cleanEmail}. Valid for 5 minutes.`, email: cleanEmail });
+  } catch (err) {
+    console.error('Send OTP error:', err);
+    res.status(500).json({ error: 'Failed to send OTP email. Please check SMTP configuration.' });
+  }
+});
+
+// POST /api/auth/verify-otp — verify OTP and issue JWT
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const record = otpStore.get(cleanEmail);
+
+    if (!record) {
+      return res.status(400).json({ error: 'No OTP requested for this email. Please request a new OTP.' });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanEmail);
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+
+    // Limit brute-force attempts
+    record.attempts = (record.attempts || 0) + 1;
+    if (record.attempts > 5) {
+      otpStore.delete(cleanEmail);
+      return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+    }
+
+    if (record.otp !== otp.toString().trim()) {
+      return res.status(401).json({ error: `Incorrect OTP. ${5 - record.attempts} attempts remaining.` });
+    }
+
+    // OTP is valid — clear it immediately (single use)
+    otpStore.delete(cleanEmail);
+
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const token = jwt.sign(
+      { user_id: user.user_id, reg_no: user.reg_no, email: user.email, role: user.role, full_name: user.full_name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    await createAuditLog(user.user_id, 'OTP_LOGIN', 'USER', user.user_id, `OTP login verified for ${cleanEmail}`, req);
+
+    res.json({
+      message: 'OTP verified! Logged in successfully.',
+      token,
+      user: {
+        user_id: user.user_id,
+        reg_no: user.reg_no,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        home_currency: user.home_currency
+      }
+    });
+  } catch (err) {
+    console.error('Verify OTP error:', err);
+    res.status(500).json({ error: 'OTP verification failed' });
+  }
+});
+
 // Current Profile
+
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
