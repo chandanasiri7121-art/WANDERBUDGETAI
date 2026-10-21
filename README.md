@@ -239,14 +239,14 @@ Open **`http://localhost:5173`** in your browser.
 
 ## 5. Automated Verification Test Suite
 
-Run the 15-test automated verification suite:
+Run the 18-test automated verification suite:
 ```bash
 node test_wanderbudget_24BAI0226.js
 ```
 Expected Output:
 ```text
 ================================================================
- WanderBudget AI — Automated Verification Suite (24BAI0226) 
+ WanderBudget AI — Automated Verification Suite 
 ================================================================
 ✔ PASS: Test 1: System Health & PostgreSQL Database Connectivity
 ✔ PASS: Test 2: Traveler Login & JWT Generation (24BAI0226)
@@ -255,6 +255,7 @@ Expected Output:
 ✔ PASS: Test 5: AI Cost-of-Living Internet Analyzer (Dynamic Destination Search)
 ✔ PASS: Test 6: Fetch Budget Categories Master Table
 ✔ PASS: Test 7: Dynamic Budget Calculation via PostgreSQL Stored Procedure & What-If Engine
+✔ PASS: Test 7b: Reverse Budget Optimizer (Mode 2: Fit Itinerary to Wallet Budget)
 ✔ PASS: Test 8: ACID Transaction: Save Planned Trip, Breakdowns & Audit Log
 ✔ PASS: Test 9: Log Normal Expense (Trigger Evaluates Category Spend)
 ✔ PASS: Test 10: Trigger Evaluation: Log Large Expense Exceeding Budget Threshold
@@ -262,9 +263,11 @@ Expected Output:
 ✔ PASS: Test 12: Query SQL Analytical View: v_destination_cost_overview
 ✔ PASS: Test 13: RBAC Security Enforcement (Traveler Blocked from Admin Logs)
 ✔ PASS: Test 14: RBAC Access Authorized (Admin Accesses Audit Logs)
-✔ PASS: Test 15: Verification of Academic Identity Headers (24BAI0226)
+✔ PASS: Test 15: Verification of API Response Headers
+✔ PASS: Test 16: Traveler AI Copilot Chatbot (PostgreSQL Grounding & Cost Estimation)
+✔ PASS: Test 17: Sign in with Google OAuth (Single Users Table & Audit Trail)
 ================================================================
- Test Results: 15 Passed | 0 Failed 
+ Test Results: 18 Passed | 0 Failed 
 ================================================================
 ```
 
