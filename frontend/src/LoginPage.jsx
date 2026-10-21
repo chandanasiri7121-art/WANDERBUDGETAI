@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Compass, Shield, Lock, Mail, User, Eye, EyeOff, ArrowRight,
-  Sparkles, CheckCircle2, AlertTriangle, Key, Layers, Database,
+  Sparkles, CheckCircle2, AlertTriangle, Layers, Database,
   Cpu, Award, Check, RefreshCw
 } from 'lucide-react';
 
@@ -172,20 +172,6 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
 
-  // Quick 1-Click Evaluator Account Switcher
-  const handleQuickEvaluatorLogin = (role) => {
-    if (role === 'ADMIN') {
-      setLoginId('ADMIN_24BAI0226');
-      setPassword('Admin@123');
-    } else {
-      setLoginId('24BAI0226');
-      setPassword('Traveler@123');
-    }
-    // Auto submit with slight delay for visual feedback
-    setTimeout(() => {
-      document.getElementById('login-submit-btn')?.click();
-    }, 100);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center relative overflow-hidden selection:bg-emerald-500 selection:text-slate-950">
@@ -520,56 +506,6 @@ export default function LoginPage({ onLoginSuccess }) {
                 <div id="google-btn-official" className="flex justify-center min-h-[44px]" />
               </div>
 
-              {/* Pre-Configured Evaluator / Demo Logins */}
-              <div className="mt-6 pt-5 border-t border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-emerald-400" />
-                    Evaluation 1-Click Accounts
-                  </span>
-                  <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Instant Sign-In
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleQuickEvaluatorLogin('TRAVELER')}
-                    className="p-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/50 text-left transition-all group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200 group-hover:text-emerald-400 transition-colors">
-                        Traveler Account
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                        TRAVELER
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-1">24BAI0226</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Password: Traveler@123</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleQuickEvaluatorLogin('ADMIN')}
-                    className="p-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 text-left transition-all group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">
-                        Administrator
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">
-                        ADMIN
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-1">ADMIN_24BAI0226</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Password: Admin@123</div>
-                  </button>
-                </div>
-              </div>
 
             </div>
           </div>
