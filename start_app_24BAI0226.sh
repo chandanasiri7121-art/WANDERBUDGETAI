@@ -1,15 +1,12 @@
 #!/bin/bash
 # ============================================================================
 # WanderBudget AI — Quick Start Launch Script
-# Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-# Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 # ============================================================================
 
 set -e
 
 echo "================================================================="
 echo " WanderBudget AI: Dynamic Trip Budget Builder & Cost Analyzer"
-echo " Student: Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26"
 echo "================================================================="
 
 # Start Backend Server

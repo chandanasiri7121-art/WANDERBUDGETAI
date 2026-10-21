@@ -2,8 +2,8 @@
 
 **Project Title:** WanderBudget AI — Dynamic Trip Budget Builder & Live AI Cost-of-Living Analyzer  
 **Course:** BCSE302P Database Systems Lab  
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Slot:** `L25+L26` | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Slot:** `L25+L26` | **Faculty In-Charge:** Faculty In-Charge  
 **Institution:** School of Computer Science and Engineering (SCOPE), VIT Chennai  
 **Academic Year:** Fall Semester 2026–27  
 

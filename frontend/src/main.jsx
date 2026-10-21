@@ -5,7 +5,6 @@ import './index.css';
 
 console.log('================================================================');
 console.log('WanderBudget AI: Dynamic Trip Budget Builder & Live Cost Analyzer');
-console.log('Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
 console.log('Timestamp:', new Date().toISOString());
 console.log('================================================================');
 

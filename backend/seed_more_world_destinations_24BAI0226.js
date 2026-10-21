@@ -1,6 +1,5 @@
 // ============================================================================
 // WanderBudget AI — Global World Destinations Expanded Seeder
-// Student: Garudaiahgari Sai Siri Chandana | Reg: 24BAI0226
 // Expands PostgreSQL database to 100+ premier travel destinations worldwide
 // ============================================================================
 

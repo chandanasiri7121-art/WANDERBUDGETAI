@@ -1,7 +1,7 @@
 # Existing Work & Research Gap: SkillGap Radar
 
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Faculty In-Charge  
 
 ---
 

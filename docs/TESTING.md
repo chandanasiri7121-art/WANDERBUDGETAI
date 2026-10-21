@@ -1,8 +1,8 @@
 # Testing & Verification: WanderBudget AI
 
 **Course:** BCSE302P Database Systems Lab  
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Slot:** L25+L26 | **Faculty In-Charge:** Faculty In-Charge  
 
 ---
 
@@ -63,6 +63,6 @@ node test_wanderbudget_24BAI0226.js
 
 ================================================================
  Test Summary: 15 Passed | 0 Failed (100% Success Rate)
- Student: Garudaiahgari Sai Siri Chandana (24BAI0226)
+ Student: Lead Developer (24BAI0226)
 ================================================================
 ```

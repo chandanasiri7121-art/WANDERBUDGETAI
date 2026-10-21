@@ -1,7 +1,5 @@
 // ============================================================================
 // SkillGap Radar: Express Backend Application
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
 
 require('dotenv').config();
@@ -22,11 +20,10 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 app.use(cors());
 app.use(express.json());
 
-// Log middleware embedding Identity & Timestamp
+// Log middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [24BAI0226_SaiSiriChandana] ${req.method} ${req.url}`);
-  res.setHeader('X-Student-Identity', 'Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
   res.setHeader('X-Server-Timestamp', timestamp);
   next();
 });
@@ -180,10 +177,6 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ONLINE',
     project: 'SkillGap Radar: Evidence-Based Career Readiness Platform',
-    developer: 'Garudaiahgari Sai Siri Chandana',
-    reg_no: '24BAI0226',
-    slot: 'L25+L26',
-    faculty: 'Dr. V. SIVAKUMAR',
     timestamp: new Date().toISOString(),
   });
 });

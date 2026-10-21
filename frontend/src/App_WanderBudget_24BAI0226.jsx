@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LoginPage from './LoginPage.jsx';
 import {
   Compass, MapPin, Calendar, Users, DollarSign, Sparkles, TrendingUp,
   AlertTriangle, ShieldCheck, CheckCircle2, Search, ArrowRight, RefreshCw,
@@ -304,21 +305,20 @@ export default function App_WanderBudget_24BAI0226() {
   const [activeTab, setActiveTab] = useState('ai_explorer'); // 'ai_explorer', 'builder', 'trips', 'expenses', 'admin', 'chatbot'
 
   // User Auth State & Google OAuth
-  const [user, setUser] = useState({
-    user_id: 1,
-    reg_no: '24BAI0226',
-    full_name: 'Garudaiahgari Sai Siri Chandana',
-    role: 'TRAVELER',
-    email: 'saisirichandana.g2024@vitstudent.ac.in',
-    home_currency: 'INR',
-    oauth_provider: 'LOCAL'
-  });
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(localStorage.getItem('wb_token') || '');
+  const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
-  const [googleEmailInput, setGoogleEmailInput] = useState('saisirichandana.google@gmail.com');
-  const [googleNameInput, setGoogleNameInput] = useState('Sai Siri Chandana (Google Verified)');
+  const [googleEmailInput, setGoogleEmailInput] = useState('traveler.google@gmail.com');
+  const [googleNameInput, setGoogleNameInput] = useState('Google Traveler (Verified)');
   const [authNotification, setAuthNotification] = useState(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem('wb_token');
+    setToken('');
+    setUser(null);
+    setActiveTab('ai_explorer');
+  };
 
   const handleGoogleSignIn = async (customEmail, customName) => {
     const emailToUse = customEmail || googleEmailInput || 'traveler.google@gmail.com';
@@ -593,17 +593,29 @@ Ask me anything like:
       try {
         setLoading(true);
         fetchApiStatus();
-        // Login default traveler
-        const loginRes = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login_id: '24BAI0226', password: 'Traveler@123' })
-        });
-        if (loginRes.ok) {
-          const loginData = await loginRes.json();
-          setUser(loginData.user);
-          setToken(loginData.token);
-          localStorage.setItem('wb_token', loginData.token);
+
+        // 1. Check for stored token and verify active session
+        const savedToken = localStorage.getItem('wb_token');
+        if (savedToken) {
+          try {
+            const meRes = await fetch('/api/auth/me', {
+              headers: { 'Authorization': `Bearer ${savedToken}` }
+            });
+            if (meRes.ok) {
+              const meUser = await meRes.json();
+              setUser(meUser);
+              setToken(savedToken);
+            } else {
+              localStorage.removeItem('wb_token');
+              setToken('');
+              setUser(null);
+            }
+          } catch (tokenErr) {
+            console.warn('Session verification error:', tokenErr.message);
+          }
+        } else {
+          setToken('');
+          setUser(null);
         }
 
         // Fetch Destinations
@@ -1076,6 +1088,20 @@ Ask me anything like:
     }
   };
 
+  if (!user || !token) {
+    return (
+      <LoginPage
+        onLoginSuccess={(loggedInUser, loggedInToken) => {
+          setUser(loggedInUser);
+          setToken(loggedInToken);
+          if (loggedInUser.role === 'ADMIN') {
+            fetchAdminData();
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       {/* 1. TOP HEADER & IDENTITY EMBEDDING */}
@@ -1097,21 +1123,19 @@ Ask me anything like:
           </div>
         </div>
 
-        {/* Academic Compliance & Student Metadata Badge */}
+        {/* Application Status Badge */}
         <div className="hidden lg:flex items-center gap-4 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-400">Student:</span>
-            <span className="font-semibold text-slate-200">Garudaiahgari Sai Siri Chandana</span>
-          </div>
-          <div className="h-4 w-px bg-slate-800" />
-          <div>
-            <span className="text-slate-400">Reg No:</span>
-            <span className="ml-1 font-mono font-bold text-emerald-400">24BAI0226</span>
+            <span className="font-semibold text-slate-200">WanderBudget AI</span>
           </div>
           <div className="h-4 w-px bg-slate-800" />
           <div className="text-slate-400">
-            Slot: <span className="text-slate-200 font-medium">L25+L26</span>
+            System: <span className="text-emerald-400 font-medium">Online</span>
+          </div>
+          <div className="h-4 w-px bg-slate-800" />
+          <div className="text-slate-400">
+            Mode: <span className="text-slate-200 font-medium">Production Ready</span>
           </div>
         </div>
 
@@ -1167,6 +1191,16 @@ Ask me anything like:
             <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold font-mono">
               {user?.role}
             </span>
+          </button>
+
+          {/* Log Out Button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all shadow-sm active:scale-95"
+            title="Log Out of session and return to Login Page"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline">Log Out</span>
           </button>
         </div>
       </header>
@@ -3485,14 +3519,14 @@ Ask me anything like:
       {/* 4. FOOTER */}
       <footer className="border-t border-slate-800/80 bg-slate-950 px-6 py-4 mt-auto text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div>
-          WanderBudget AI • <span className="text-slate-300 font-medium">Garudaiahgari Sai Siri Chandana (24BAI0226)</span>
+          WanderBudget AI • <span className="text-slate-300 font-medium">Dynamic Trip Budget Builder & Live Cost Analyzer</span>
         </div>
         <div className="flex items-center gap-4">
-          <span>BCSE302P Database Systems Lab</span>
+          <span>Enterprise Database Architecture</span>
           <span>•</span>
-          <span>Faculty: Dr. V. SIVAKUMAR</span>
+          <span>PostgreSQL 16 + Prisma</span>
           <span>•</span>
-          <span>Slot: L25+L26</span>
+          <span>Multi-Currency System</span>
         </div>
       </footer>
 
@@ -3667,11 +3701,11 @@ Ask me anything like:
               <button
                 type="button"
                 disabled={authLoading}
-                onClick={() => handleGoogleSignIn('saisirichandana.google@gmail.com', 'Sai Siri Chandana (Google Verified)')}
+                onClick={() => handleGoogleSignIn('traveler.google@gmail.com', 'Google Traveler')}
                 className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 disabled:opacity-60 text-slate-900 font-semibold px-4 py-2.5 rounded-xl shadow-md transition-all text-xs font-sans active:scale-98"
               >
                 <GoogleLogoSvg className="w-4 h-4" />
-                <span>Continue with Google as Sai Siri Chandana</span>
+                <span>Continue with Google</span>
               </button>
 
               {/* Custom Google Email Input option */}
@@ -3702,7 +3736,7 @@ Ask me anything like:
             {/* 2. Switch Academic Roles (RBAC Demonstration) */}
             <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
               <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-                Pre-Seeded Academic Profiles (RBAC)
+                Pre-Configured Role Profiles (RBAC)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
@@ -3716,11 +3750,11 @@ Ask me anything like:
                   }`}
                 >
                   <div className="text-xs font-bold flex items-center justify-between">
-                    <span>Student Traveler</span>
+                    <span>Traveler Account</span>
                     {user?.role === 'TRAVELER' && user?.oauth_provider === 'LOCAL' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">24BAI0226</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Sai Siri Chandana</div>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">Standard Traveler</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Trip Planner & Budget Builder</div>
                 </button>
 
                 <button
@@ -3734,11 +3768,11 @@ Ask me anything like:
                   }`}
                 >
                   <div className="text-xs font-bold flex items-center justify-between">
-                    <span>Lab Administrator</span>
+                    <span>Administrator</span>
                     {user?.role === 'ADMIN' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">ADMIN_24BAI0226</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Dr. V. Sivakumar Lab Admin</div>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">System Admin</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Full Management & Audit Access</div>
                 </button>
               </div>
             </div>
@@ -3800,7 +3834,7 @@ Ask me anything like:
                 <div className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
                   WanderBot Copilot
                   <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    24BAI0226
+                    AI Copilot
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400">

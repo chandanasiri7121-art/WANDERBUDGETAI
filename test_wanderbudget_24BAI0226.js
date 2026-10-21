@@ -1,14 +1,12 @@
 // ============================================================================
 // WanderBudget AI — Automated Verification & E2E Test Suite
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26
 // ============================================================================
 
 const BASE_URL = 'http://localhost:5001';
 
 async function runTests() {
   console.log('================================================================');
-  console.log(' WanderBudget AI — Automated Verification Suite (24BAI0226) ');
+  console.log(' WanderBudget AI — Automated Verification Suite ');
   console.log('================================================================\n');
 
   let passed = 0;
@@ -38,9 +36,6 @@ async function runTests() {
     const data = await res.json();
     if (data.status !== 'OPERATIONAL' || !data.database.connected) {
       throw new Error('Database is not operational');
-    }
-    if (data.student.reg_no !== '24BAI0226') {
-      throw new Error('Student registration number mismatch');
     }
   });
 
@@ -292,13 +287,12 @@ async function runTests() {
     }
   });
 
-  // Test 15: Student Identity & Academic Integrity Headers
-  await test('Test 15: Verification of Academic Identity Headers (24BAI0226)', async () => {
+  // Test 15: API Response Headers Verification
+  await test('Test 15: Verification of API Response Headers', async () => {
     const res = await fetch(`${BASE_URL}/api/destinations`);
-    const regNo = res.headers.get('x-student-regno');
-    const studentName = res.headers.get('x-student-name');
-    if (regNo !== '24BAI0226' || !studentName.includes('Sai Siri Chandana')) {
-      throw new Error('Academic compliance headers missing or invalid');
+    const projectTitle = res.headers.get('x-project-title');
+    if (!projectTitle || !projectTitle.includes('WanderBudget AI')) {
+      throw new Error('API project headers missing or invalid');
     }
   });
 

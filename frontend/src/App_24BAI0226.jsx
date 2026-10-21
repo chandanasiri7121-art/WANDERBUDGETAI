@@ -1,7 +1,5 @@
 // ============================================================================
 // SkillGap Radar - Main Application Component (Enhanced Standout Edition)
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -849,7 +847,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
                   <div className="font-semibold text-rose-400 flex items-center gap-1">
                     <Shield className="w-3 h-3" /> Admin (Faculty)
                   </div>
-                  <div className="text-[10px] text-gray-400">Dr. Sivakumar</div>
+                  <div className="text-[10px] text-gray-400">Faculty Admin</div>
                 </button>
               </div>
             </div>
@@ -857,7 +855,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
         </main>
 
         <footer className="text-center text-xs text-gray-500 py-3">
-          BCSE302P Database Systems Lab | Faculty: Dr. V. SIVAKUMAR | VIT University
+          BCSE302P Database Systems Lab | Faculty In-Charge | VIT University
         </footer>
       </div>
     );
@@ -2842,12 +2840,12 @@ export default function App_24BAI0226_SaiSiriChandana() {
             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200 mb-6 text-xs">
               <div>
                 <span className="text-gray-500 font-semibold block text-[10px] uppercase">Candidate Name</span>
-                <strong className="text-gray-900 text-sm">Garudaiahgari Sai Siri Chandana</strong>
+                <strong className="text-gray-900 text-sm">Student Candidate</strong>
                 <div className="font-mono text-indigo-700 font-bold mt-0.5">Register No: 24BAI0226</div>
               </div>
               <div>
                 <span className="text-gray-500 font-semibold block text-[10px] uppercase">Faculty In-Charge</span>
-                <strong className="text-gray-900 text-sm">Dr. V. SIVAKUMAR</strong>
+                <strong className="text-gray-900 text-sm">Faculty Advisor</strong>
                 <div className="text-gray-600 mt-0.5">School of Computer Science & Engineering (SCOPE)</div>
               </div>
             </div>
@@ -2905,7 +2903,7 @@ export default function App_24BAI0226_SaiSiriChandana() {
               <div className="text-center">
                 <div className="w-48 border-b border-gray-400 mb-1"></div>
                 <div className="font-semibold text-gray-700">Faculty Signature & Seal</div>
-                <div className="text-[10px] text-gray-500">Dr. V. SIVAKUMAR</div>
+                <div className="text-[10px] text-gray-500">Faculty In-Charge</div>
               </div>
             </div>
 
@@ -2925,10 +2923,10 @@ export default function App_24BAI0226_SaiSiriChandana() {
       <footer className="glass-panel border-t border-gray-800 py-4 px-6 text-center text-xs text-gray-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            SkillGap Radar Platform • Garudaiahgari Sai Siri Chandana (24BAI0226) • Slot: L25+L26
+            SkillGap Radar Platform • Candidate Portal • Slot: L25+L26
           </span>
           <span className="text-[11px] text-gray-500">
-            BCSE302P Database Systems Lab • Faculty: Dr. V. SIVAKUMAR • Fall 2026-27
+            BCSE302P Database Systems Lab • Fall 2026-27
           </span>
         </div>
       </footer>

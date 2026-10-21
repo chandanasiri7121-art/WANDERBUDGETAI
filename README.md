@@ -1,7 +1,5 @@
 # WanderBudget AI — Dynamic Trip Budget Builder & Live AI Cost-of-Living Analyzer
-### BCSE302P Database Systems Lab Project | Slot: L25+L26
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Faculty:** Dr. V. SIVAKUMAR | **Academic Year:** 2024–2026
+### Database Systems Project
 
 ---
 
@@ -210,7 +208,7 @@ In `backend/.env`:
 ```env
 PORT=5001
 DATABASE_URL="postgresql://postgres:postgrespassword@localhost:5432/skillgap_radar_24BAI0226?schema=public"
-JWT_SECRET="SaiSiriChandana_24BAI0226_SuperSecureJWTSecret_2026"
+JWT_SECRET="WanderBudget_SuperSecureJWTSecret_2026"
 ```
 
 ### Step 3: Run Database Migrations & Seeds

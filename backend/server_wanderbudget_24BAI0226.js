@@ -1,7 +1,5 @@
 // ============================================================================
 // WanderBudget AI — Express.js Backend Server
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
 
 require('dotenv').config();
@@ -15,7 +13,7 @@ const { z } = require('zod');
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
-const JWT_SECRET = process.env.JWT_SECRET || 'SaiSiriChandana_24BAI0226_SuperSecureJWTSecret_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'WanderBudget_SuperSecureJWTSecret_2026';
 
 BigInt.prototype.toJSON = function() {
   return Number(this);
@@ -27,8 +25,6 @@ app.use(express.json());
 
 // Global Headers & Audit Metadata Injection
 app.use((req, res, next) => {
-  res.setHeader('X-Student-RegNo', '24BAI0226');
-  res.setHeader('X-Student-Name', 'Garudaiahgari Sai Siri Chandana');
   res.setHeader('X-Project-Title', 'WanderBudget AI - Dynamic Trip Budget & Live Cost Analyzer');
   next();
 });
@@ -1496,7 +1492,7 @@ Destination Grounding Data from PostgreSQL:
 ${destContext.attractions.slice(0, 10).map(a => `  * ${a.name} [${a.category}] - Ticket: ₹${a.ticket_price_inr} (${a.ticket_price_local} ${destContext.currency_code}) - Duration: ${a.avg_duration_hours} hrs`).join('\n')}
 ` : 'No specific destination active yet. Provide recommendations from popular global destinations (e.g. Tirupati, Paris, Tokyo, Zurich, Bali, London, Rome).';
 
-        const systemPrompt = `You are "WanderBot", the friendly, expert AI Traveler Copilot for WanderBudget AI, created by Garudaiahgari Sai Siri Chandana (Reg: 24BAI0226) for BCSE302P Database Systems Lab.
+        const systemPrompt = `You are "WanderBot", the friendly, expert AI Traveler Copilot for WanderBudget AI.
 You help travelers with realistic cost of living estimates, personalized itineraries, landmark recommendations, and smart travel budgeting.
 ${destSummary}
 
@@ -2597,12 +2593,6 @@ app.get('/api/admin/system-health', async (req, res) => {
 
     res.json({
       status: 'OPERATIONAL',
-      student: {
-        name: 'Garudaiahgari Sai Siri Chandana',
-        reg_no: '24BAI0226',
-        slot: 'L25+L26',
-        course: 'BCSE302P Database Systems Lab'
-      },
       database: {
         connected: true,
         latency_ms: latencyMs,
@@ -2669,7 +2659,6 @@ app.post('/api/system/save-gemini-key', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`==================================================================`);
   console.log(` WanderBudget AI — Dynamic Trip Budget Builder & Cost Analyzer `);
-  console.log(` Student: Garudaiahgari Sai Siri Chandana | Reg: 24BAI0226 `);
   console.log(` Running on Port: http://localhost:${PORT} `);
   console.log(`==================================================================`);
 });

@@ -7,7 +7,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// 1. Single Users Table with RBAC (Garudaiahgari Sai Siri Chandana - 24BAI0226)
+// 1. Single Users Table with RBAC
 model User {
   user_id        Int            @id @default(autoincrement())
   reg_no         String         @unique @db.VarChar(50) // Student Reg or Admin ID

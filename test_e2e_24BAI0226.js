@@ -1,15 +1,12 @@
 // ============================================================================
 // SkillGap Radar: Automated End-to-End Verification Test Suite
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
 
 const BASE_URL = 'http://localhost:5001/api';
 
-async function runVerification_24BAI0226_SaiSiriChandana() {
+async function runVerification() {
   console.log('================================================================');
   console.log('SkillGap Radar: Automated E2E Verification Suite');
-  console.log('Student: Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
   console.log('Timestamp:', new Date().toISOString());
   console.log('================================================================\n');
 
@@ -283,11 +280,10 @@ async function runVerification_24BAI0226_SaiSiriChandana() {
 
   console.log('\n================================================================');
   console.log('ALL 14 END-TO-END & STANDOUT NOVEL FEATURE TESTS PASSED (100%)!');
-  console.log('Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26');
   console.log('================================================================');
 }
 
-runVerification_24BAI0226_SaiSiriChandana().catch((err) => {
+runVerification().catch((err) => {
   console.error('Verification Failure:', err);
   process.exit(1);
 });

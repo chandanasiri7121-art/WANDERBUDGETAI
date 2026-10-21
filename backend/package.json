@@ -1,7 +1,7 @@
 {
   "name": "wanderbudget-backend-24bai0226",
   "version": "1.0.0",
-  "description": "WanderBudget AI Backend - Garudaiahgari Sai Siri Chandana (24BAI0226)",
+  "description": "WanderBudget AI Backend - Dynamic Trip Budget Builder & Live Cost Analyzer",
   "main": "server_wanderbudget_24BAI0226.js",
   "scripts": {
     "start": "node server_wanderbudget_24BAI0226.js",

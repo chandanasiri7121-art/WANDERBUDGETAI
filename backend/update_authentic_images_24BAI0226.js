@@ -1,6 +1,5 @@
 // ============================================================================
 // WanderBudget AI — Authentic Destination Scenery Images & Accuracy Updater
-// Student: Garudaiahgari Sai Siri Chandana | Reg: 24BAI0226
 // Replaces all fallback images with authentic, curated world landmarks
 // ============================================================================
 

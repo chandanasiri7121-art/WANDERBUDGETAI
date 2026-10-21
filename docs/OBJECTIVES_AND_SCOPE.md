@@ -1,8 +1,8 @@
 # Objectives & Scope: WanderBudget AI
 
 **Course:** BCSE302P Database Systems Lab  
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Slot:** L25+L26 | **Faculty In-Charge:** Faculty In-Charge  
 
 ---
 

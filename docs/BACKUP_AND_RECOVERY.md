@@ -1,8 +1,8 @@
 # Database Backup & Recovery: WanderBudget AI
 
 **Course:** BCSE302P Database Systems Lab  
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Slot:** L25+L26 | **Faculty In-Charge:** Faculty In-Charge  
 
 ---
 
@@ -55,12 +55,12 @@ docker exec -i skillgap_pg_24BAI0226 psql \
 ```
 =================================================================
  WanderBudget AI - Native PostgreSQL Backup & Restore Utility
- Garudaiahgari Sai Siri Chandana (24BAI0226) | Slot: L25+L26
+ Lead Developer (24BAI0226) | Slot: L25+L26
  Time: Sun Oct 20 12:00:00 IST 2026
 =================================================================
 Creating backup for database 'skillgap_radar_24BAI0226' from container 'skillgap_pg_24BAI0226'...
 Backup completed successfully!
 Saved to: ./backups/wanderbudget_backup_24BAI0226_20261020_120000.sql
--rw-r--r--  1 gsaisirichandana  staff   284K Oct 20 12:00 ./backups/wanderbudget_backup_24BAI0226_20261020_120000.sql
+-rw-r--r--  1 user  staff   284K Oct 20 12:00 ./backups/wanderbudget_backup_24BAI0226_20261020_120000.sql
 ```
 Restoration was verified by dropping and restoring all 11 tables, views, procedures, and triggers, confirming 100% data integrity without orphaned keys.

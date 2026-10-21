@@ -1,8 +1,8 @@
 # Project Planning & Proposal: WanderBudget AI
 
 **Course:** BCSE302P Database Systems Lab  
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Slot:** L25+L26 | **Faculty In-Charge:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Slot:** L25+L26 | **Faculty In-Charge:** Faculty In-Charge  
 **Academic Year:** Fall Semester 2026–27  
 
 ---
@@ -51,7 +51,7 @@ Modern leisure and student travelers face significant financial unpredictability
 ## 5. Team Members and Responsibilities
 | Team Member | Register Number | Role & Responsibilities |
 | :--- | :--- | :--- |
-| **Garudaiahgari Sai Siri Chandana** | **`24BAI0226`** | **Lead Database Architect & Full-Stack Developer**<br>• ER Diagram & Relational Schema Modeling (3NF/BCNF)<br>• PostgreSQL Stored Procedures, Functions & Triggers (`sp_calculate_trip_budget`, `trg_check_budget_overrun`)<br>• Prisma ORM Integration & ACID Transactions<br>• Express.js REST API Architecture & Single Users Table RBAC<br>• React 18 Dynamic What-If Simulation & Budget Visualizations<br>• Database Backup Automation & GitHub CI/CD Pipeline |
+| **Lead Developer** | **`24BAI0226`** | **Lead Database Architect & Full-Stack Developer**<br>• ER Diagram & Relational Schema Modeling (3NF/BCNF)<br>• PostgreSQL Stored Procedures, Functions & Triggers (`sp_calculate_trip_budget`, `trg_check_budget_overrun`)<br>• Prisma ORM Integration & ACID Transactions<br>• Express.js REST API Architecture & Single Users Table RBAC<br>• React 18 Dynamic What-If Simulation & Budget Visualizations<br>• Database Backup Automation & GitHub CI/CD Pipeline |
 
 ---
 

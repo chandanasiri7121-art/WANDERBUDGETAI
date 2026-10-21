@@ -1,7 +1,5 @@
 -- ============================================================================
 -- WanderBudget AI — Database Stored Procedures, Views, and Triggers
--- Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
--- Course: BCSE302P Database Systems Lab | Slot: L25+L26
 -- ============================================================================
 
 -- 1. ANALYTICAL VIEW: Comprehensive Trip Budget Summary

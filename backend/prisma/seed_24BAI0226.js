@@ -1,7 +1,5 @@
 // ============================================================================
 // SkillGap Radar - Database Seed & Advanced SQL Procedures
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26 | Faculty: Dr. V. SIVAKUMAR
 // ============================================================================
 
 const { PrismaClient } = require('@prisma/client');
@@ -37,12 +35,12 @@ async function main_seed_24BAI0226_SaiSiriChandana() {
   const educatorPasswordHash = await bcrypt.hash('Faculty@123', 10);
 
   const studentUser = await prisma.user.upsert({
-    where: { email: 'saisirichandana@vitstudent.ac.in' },
-    update: { reg_no: '24BAI0226', full_name: 'Garudaiahgari Sai Siri Chandana' },
+    where: { email: 'student@vitstudent.ac.in' },
+    update: { reg_no: '24BAI0226', full_name: 'Student User' },
     create: {
       reg_no: '24BAI0226',
-      full_name: 'Garudaiahgari Sai Siri Chandana',
-      email: 'saisirichandana@vitstudent.ac.in',
+      full_name: 'Student User',
+      email: 'student@vitstudent.ac.in',
       password_hash: studentPasswordHash,
       role_id: roleStudent.role_id,
       oauth_provider: 'LOCAL',
@@ -50,12 +48,12 @@ async function main_seed_24BAI0226_SaiSiriChandana() {
   });
 
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin.sivakumar@vit.ac.in' },
+    where: { email: 'admin@vit.ac.in' },
     update: {},
     create: {
-      reg_no: 'ADMIN_24BAI0226',
-      full_name: 'Administrator (Dr. V. SIVAKUMAR)',
-      email: 'admin.sivakumar@vit.ac.in',
+      reg_no: 'ADMIN_USER',
+      full_name: 'System Administrator',
+      email: 'admin@vit.ac.in',
       password_hash: adminPasswordHash,
       role_id: roleAdmin.role_id,
       oauth_provider: 'LOCAL',

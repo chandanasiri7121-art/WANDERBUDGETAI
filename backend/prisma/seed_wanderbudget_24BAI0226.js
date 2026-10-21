@@ -1,7 +1,5 @@
 // ============================================================================
 // WanderBudget AI — Database Seed Script
-// Student: Garudaiahgari Sai Siri Chandana | Register Number: 24BAI0226
-// Course: BCSE302P Database Systems Lab | Slot: L25+L26
 // ============================================================================
 
 const { PrismaClient } = require('@prisma/client');
@@ -10,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('--- Starting WanderBudget AI Seeding (24BAI0226) ---');
+  console.log('--- Starting WanderBudget AI Seeding ---');
 
   // 1. Seed Budget Categories
   const categoriesData = [
@@ -37,11 +35,14 @@ async function main() {
 
   const travelerUser = await prisma.user.upsert({
     where: { reg_no: '24BAI0226' },
-    update: {},
+    update: {
+      full_name: 'Traveler',
+      email: 'traveler@wanderbudget.local'
+    },
     create: {
       reg_no: '24BAI0226',
-      full_name: 'Garudaiahgari Sai Siri Chandana',
-      email: 'saisirichandana.g2024@vitstudent.ac.in',
+      full_name: 'Traveler',
+      email: 'traveler@wanderbudget.local',
       password_hash: studentPassword,
       role: 'TRAVELER',
       home_currency: 'INR'
@@ -50,11 +51,14 @@ async function main() {
 
   const adminUser = await prisma.user.upsert({
     where: { reg_no: 'ADMIN_24BAI0226' },
-    update: {},
+    update: {
+      full_name: 'System Administrator',
+      email: 'admin@wanderbudget.local'
+    },
     create: {
       reg_no: 'ADMIN_24BAI0226',
-      full_name: 'Garudaiahgari Sai Siri Chandana (System Admin)',
-      email: 'admin.wanderbudget@vit.ac.in',
+      full_name: 'System Administrator',
+      email: 'admin@wanderbudget.local',
       password_hash: adminPassword,
       role: 'ADMIN',
       home_currency: 'INR'

@@ -1,7 +1,7 @@
 # Methodology: SkillGap Radar
 
-**Student:** Garudaiahgari Sai Siri Chandana | **Register Number:** `24BAI0226`  
-**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Dr. V. SIVAKUMAR  
+`24BAI0226`  
+**Course:** BCSE302P Database Systems Lab | **Slot:** `L25+L26` | **Faculty:** Faculty In-Charge  
 
 ---
 
@@ -11,7 +11,7 @@
 When a student completes a diagnostic quiz on skill $s$, raw score $S_s$ is calculated:
 $$S_s = \left(\frac{\text{Correct Answers}}{\text{Total Questions}}\right) \times 100$$
 
-The PostgreSQL trigger `trg_before_assessment_24BAI0226_SaiSiriChandana` intercepts `INSERT` on `assessment_attempts` and computes the discrete proficiency level $A_s \in \{1, 2, 3, 4, 5\}$:
+The PostgreSQL trigger `trg_before_assessment` intercepts `INSERT` on `assessment_attempts` and computes the discrete proficiency level $A_s \in \{1, 2, 3, 4, 5\}$:
 $$A_s = \begin{cases} 
 5 & \text{if } S_s \ge 90\% \\
 4 & \text{if } 75\% \le S_s < 90\% \\
@@ -25,7 +25,7 @@ For target role version $v$ with required proficiency $R_s$, the gap $G_s$ is:
 $$G_s = \max(R_s - A_s, 0)$$
 
 ### Step 3: Weighted Priority Score Calculation
-To prioritize student focus, the stored procedure `sp_generate_gap_report_24BAI0226_SaiSiriChandana` weights each gap by the role's assigned importance weight $W_s \in [1, 5]$:
+To prioritize student focus, the stored procedure `sp_generate_gap_report` weights each gap by the role's assigned importance weight $W_s \in [1, 5]$:
 $$Q_s = \text{round}\left(W_s \times \frac{G_s}{5.0}, 2\right)$$
 
 ### Step 4: Aggregate Career Readiness Percentage
