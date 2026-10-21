@@ -1267,9 +1267,7 @@ Ask me anything like:
           </button>
         </div>
 
-        <div className="text-[11px] text-slate-500 font-mono hidden sm:block">
-          PostgreSQL 16 • ACID Transactions • Trigger Alerts
-        </div>
+
       </nav>
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
