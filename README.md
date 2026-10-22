@@ -1,24 +1,3 @@
-# WanderBudget AI — Dynamic Trip Budget Builder & Live AI Cost-of-Living Analyzer
-### Database Systems Project
-
----
-
-## 🏆 Project Evaluation Rubric Mapping (30/30 Marks)
-
-| Section | Evaluation Criteria | Marks | Implementation in WanderBudget AI |
-| :--- | :--- | :---: | :--- |
-| **1** | **Problem Statement & Project Planning** | **2** | Project title, problem statement, objectives, team responsibilities, tech stack, deliverables, Gantt chart. |
-| **2** | **Database Design** | **4** | ER diagram (Mermaid), 11 primary entities in strict 3NF/BCNF, 10+ relational foreign keys, check constraints. |
-| **3** | **Database Implementation** | **7** | PostgreSQL 16 + Prisma ORM. CRUD operations, SQL Joins, Views (`v_trip_budget_summary`, `v_destination_cost_overview`, `v_trip_category_variance`), Aggregates, ACID Transactions (`prisma.$transaction`), Stored Procedure (`sp_calculate_trip_budget`), Triggers (`trg_check_budget_overrun`). |
-| **4** | **Application Development** | **4** | React + Vite + Tailwind/Modern CSS. Dynamic itinerary budget builder, live AI web-grounded cost explorer, Recharts interactive pie charts, What-If simulator, responsive UI. |
-| **5** | **Authentication & Security** | **5** | JWT auth, bcrypt password hashing, single `users` table with RBAC (`TRAVELER` vs `ADMIN`), SQL injection prevention (parameterized queries & Prisma), secrets in `.env`. |
-| **6** | **Professional Practices** | **5** | Progressive Git commits, branching (`dev` & `main`), `.gitignore`, Docker & `docker-compose.yml`, automated backup/restore scripts (`backup_24BAI0226.sh`). |
-| **Other** | **CI/CD Pipeline** | **1** | GitHub Actions workflow (`.github/workflows/ci.yml`) validating tests and linting. |
-| **Other** | **Custom Domain Deployment** | **1** | Deployment configuration is documented; a live custom-domain deployment requires separate verification. |
-| **Other** | **Industry Best Practice** | **1** | Automated E2E test suite (15/15 tests passing) + structured PostgreSQL Audit Logging ledger. |
-| **Total** | | **30 / 30** | **Comprehensive Full-Stack DBMS Lab Implementation** |
-
----
 
 ## 1. Problem Statement & Objectives
 
