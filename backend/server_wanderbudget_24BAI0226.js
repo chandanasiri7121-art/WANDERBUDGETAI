@@ -12,7 +12,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
-const nodemailer = require('nodemailer');
 const { discoverDestinations } = require('./destination_discovery_24BAI0226');
 const { OPENAI_MODEL, createAdvisorStore, getBudgetAdvice } = require('./openai_budget_advisor_24BAI0226');
 const { calculateDynamicEstimate, calculateExternalDynamicPreview, routeExternalDestination, routeSelectedAttractions } = require('./dynamic_trip_estimator_24BAI0226');
@@ -54,14 +53,35 @@ function configuredCorsOrigins(rawOrigins) {
 
 const corsOrigins = configuredCorsOrigins(process.env.FRONTEND_ORIGINS);
 
-// Nodemailer SMTP transporter (Gmail)
-const smtpTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
+const RESEND_REQUEST_TIMEOUT_MS = 8000;
+
+async function sendOtpEmail({ to, subject, html }) {
+  const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const from = String(process.env.RESEND_FROM_EMAIL || '').trim();
+  if (!apiKey || !from) {
+    throw new Error('Resend email delivery is not configured');
   }
-});
+
+  let response;
+  try {
+    response = await fetch(RESEND_EMAILS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ from, to, subject, html }),
+      signal: AbortSignal.timeout(RESEND_REQUEST_TIMEOUT_MS)
+    });
+  } catch (err) {
+    throw new Error(err?.name === 'TimeoutError' ? 'Resend email delivery timed out' : 'Resend email delivery failed');
+  }
+
+  if (!response.ok) {
+    throw new Error(`Resend email delivery was rejected (${response.status})`);
+  }
+}
 
 // Helper: generate 6-digit OTP
 function generateOTP() {
@@ -434,7 +454,7 @@ app.post('/api/auth/google', async (req, res) => {
 
 
 // ============================================================================
-// OTP EMAIL AUTHENTICATION (SMTP via Gmail)
+// OTP EMAIL AUTHENTICATION (Resend HTTPS API)
 // ============================================================================
 
 // POST /api/auth/send-otp — generate and email a 6-digit OTP
@@ -465,9 +485,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     otpStore.set(cleanEmail, { otp, expiresAt, attempts: 0 });
 
-    // Send OTP email via SMTP (Gmail)
-    await smtpTransporter.sendMail({
-      from: `"WanderBudget AI" <${process.env.SMTP_USER}>`,
+    await sendOtpEmail({
       to: cleanEmail,
       subject: '🔐 Your WanderBudget AI Login OTP',
       html: `
@@ -494,8 +512,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     res.json({ message: `OTP sent to ${cleanEmail}. Valid for 5 minutes.`, email: cleanEmail });
   } catch (err) {
-    console.error('Send OTP error:', err);
-    res.status(500).json({ error: 'Failed to send OTP email. Please check SMTP configuration.' });
+    console.error('Send OTP email delivery failed:', err?.name || 'unknown error');
+    res.status(500).json({ error: 'Failed to send OTP email. Please try again later.' });
   }
 });
 
