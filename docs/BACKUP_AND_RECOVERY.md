@@ -58,9 +58,11 @@ docker exec -i skillgap_pg_24BAI0226 psql \
  Lead Developer (24BAI0226) | Slot: L25+L26
  Time: Sun Oct 20 12:00:00 IST 2026
 =================================================================
-Creating backup for database 'skillgap_radar_24BAI0226' from container 'skillgap_pg_24BAI0226'...
+Creating backup for database 'wanderbudget_24BAI0226' from container 'wanderbudget_pg_24BAI0226'...
 Backup completed successfully!
 Saved to: ./backups/wanderbudget_backup_24BAI0226_20261020_120000.sql
 -rw-r--r--  1 user  staff   284K Oct 20 12:00 ./backups/wanderbudget_backup_24BAI0226_20261020_120000.sql
 ```
-Restoration was verified by dropping and restoring all 11 tables, views, procedures, and triggers, confirming 100% data integrity without orphaned keys.
+For a restore drill, use a disposable database/container first. Do not restore
+over a shared or production database without an approved maintenance window,
+a tested backup, and confirmation from the database owner.

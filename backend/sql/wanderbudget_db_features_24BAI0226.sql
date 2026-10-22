@@ -104,8 +104,17 @@ DECLARE
     v_acc_night NUMERIC;
     v_meal_day NUMERIC;
     v_transit_day NUMERIC;
+    v_taxi_per_km NUMERIC;
     v_rate NUMERIC;
     v_rooms INT;
+    v_nights INT;
+    v_taxi_vehicles INT;
+    v_public_transit_share NUMERIC;
+    v_cab_km_day NUMERIC;
+    v_transport_day NUMERIC;
+    v_accommodation_total NUMERIC;
+    v_food_total NUMERIC;
+    v_transport_total NUMERIC;
 BEGIN
     -- Fetch cost of living index
     SELECT 
@@ -120,8 +129,9 @@ BEGIN
             ELSE meal_standard_day
         END,
         transit_pass_day,
+        taxi_per_km,
         exchange_rate_to_inr
-    INTO v_acc_night, v_meal_day, v_transit_day, v_rate
+    INTO v_acc_night, v_meal_day, v_transit_day, v_taxi_per_km, v_rate
     FROM cost_of_living_indices
     WHERE destination_id = p_destination_id;
 
@@ -129,30 +139,54 @@ BEGIN
     v_acc_night := COALESCE(v_acc_night, 2500);
     v_meal_day := COALESCE(v_meal_day, 1200);
     v_transit_day := COALESCE(v_transit_day, 400);
+    v_taxi_per_km := COALESCE(v_taxi_per_km, 25);
     v_rate := COALESCE(v_rate, 1.0);
 
     -- Rooms needed (assuming 2 persons per room)
     v_rooms := CEIL(p_group_size::NUMERIC / 2.0);
+    -- The Mode 1 UI defines a trip as days with days - 1 hotel nights.
+    v_nights := GREATEST(p_days - 1, 0);
+
+    -- Transit mix is intentionally style-specific. Taxi pricing is per vehicle;
+    -- a standard cab is assumed to seat four travelers, so a group shares fares.
+    IF UPPER(p_style) = 'BUDGET' THEN
+        v_public_transit_share := 1.0;
+        v_cab_km_day := 5;
+    ELSIF UPPER(p_style) = 'LUXURY' THEN
+        v_public_transit_share := 0.0;
+        v_cab_km_day := 25;
+    ELSE
+        v_public_transit_share := 0.5;
+        v_cab_km_day := 15;
+    END IF;
+    v_taxi_vehicles := CEIL(p_group_size::NUMERIC / 4.0);
+    v_transport_day := (v_transit_day * v_public_transit_share * p_group_size)
+        + (v_taxi_per_km * v_cab_km_day * v_taxi_vehicles);
+
+    v_accommodation_total := v_nights * v_acc_night * v_rate * v_rooms;
+    v_food_total := p_days * v_meal_day * v_rate * p_group_size;
+    v_transport_total := p_days * v_transport_day * v_rate;
 
     -- Return Category 1: ACCOMMODATION
     category_code := 'ACCOMMODATION';
-    allocated_inr := ROUND(p_days * v_acc_night * v_rate * v_rooms, 2);
+    allocated_inr := ROUND(v_accommodation_total, 2);
     daily_rate_inr := ROUND(v_acc_night * v_rate, 2);
-    calculation_basis := p_days || ' nights @ ' || daily_rate_inr || ' INR/night for ' || v_rooms || ' room(s)';
+    calculation_basis := v_nights || ' nights @ ' || daily_rate_inr || ' INR/night for ' || v_rooms || ' room(s)';
     RETURN NEXT;
 
     -- Return Category 2: FOOD
     category_code := 'FOOD';
-    allocated_inr := ROUND(p_days * v_meal_day * v_rate * p_group_size, 2);
+    allocated_inr := ROUND(v_food_total, 2);
     daily_rate_inr := ROUND(v_meal_day * v_rate, 2);
     calculation_basis := p_days || ' days @ ' || daily_rate_inr || ' INR/day for ' || p_group_size || ' person(s)';
     RETURN NEXT;
 
     -- Return Category 3: TRANSIT
     category_code := 'TRANSIT';
-    allocated_inr := ROUND(p_days * v_transit_day * v_rate * p_group_size, 2);
-    daily_rate_inr := ROUND(v_transit_day * v_rate, 2);
-    calculation_basis := p_days || ' days local transit pass for ' || p_group_size || ' person(s)';
+    allocated_inr := ROUND(v_transport_total, 2);
+    daily_rate_inr := ROUND(v_transport_day * v_rate, 2);
+    calculation_basis := p_days || ' days: ' || (v_public_transit_share * 100)
+        || '% public transit plus ' || v_cab_km_day || ' cab km/day across ' || v_taxi_vehicles || ' cab(s)';
     RETURN NEXT;
 
     -- Return Category 4: SIGHTSEEING
@@ -164,7 +198,7 @@ BEGIN
 
     -- Return Category 5: BUFFER
     category_code := 'BUFFER';
-    allocated_inr := ROUND((p_days * (v_acc_night * v_rooms + (v_meal_day + v_transit_day) * p_group_size) * v_rate) * 0.10, 2);
+    allocated_inr := ROUND((v_accommodation_total + v_food_total + v_transport_total) * 0.10, 2);
     daily_rate_inr := ROUND(allocated_inr / p_days, 2);
     calculation_basis := '10% Emergency contingency & currency fluctuation buffer';
     RETURN NEXT;

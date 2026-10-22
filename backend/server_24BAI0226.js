@@ -14,7 +14,11 @@ const prisma_24BAI0226_SaiSiriChandana = new PrismaClient();
 const app = express();
 
 const PORT = process.env.PORT || 5001;
-const JWT_SECRET = process.env.JWT_SECRET || 'SaiSiriChandana_24BAI0226_SuperSecureJWTSecret_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || typeof JWT_SECRET !== 'string' || JWT_SECRET.trim() === '') {
+  console.error('FATAL: JWT_SECRET environment variable is missing or empty. Server cannot start securely.');
+  process.exit(1);
+}
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 app.use(cors());

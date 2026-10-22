@@ -8,6 +8,22 @@ export default {
   theme: {
     extend: {
       colors: {
+        wb: {
+          bg: 'var(--wb-bg)',
+          surface: 'var(--wb-surface)',
+          subtle: 'var(--wb-subtle)',
+          card: 'var(--wb-card)',
+          'card-solid': 'var(--wb-card-solid)',
+          border: 'var(--wb-border)',
+          'border-hover': 'var(--wb-border-hover)',
+          text: 'var(--wb-text-main)',
+          'text-muted': 'var(--wb-text-muted)',
+          'text-subtle': 'var(--wb-text-subtle)',
+          accent: 'var(--wb-accent)',
+          'accent-hover': 'var(--wb-accent-hover)',
+          'accent-subtle': 'var(--wb-accent-subtle)',
+          'accent-text': 'var(--wb-accent-text)',
+        },
         radar: {
           dark: '#0b0f19',
           card: '#111827',

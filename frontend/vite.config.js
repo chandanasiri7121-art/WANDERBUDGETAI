@@ -8,7 +8,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        // Development-only proxy. Production requests use VITE_API_BASE_URL
+        // (or same-origin /api via a reverse proxy) through src/api.js.
+        target: process.env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:5001',
         changeOrigin: true,
       },
     },

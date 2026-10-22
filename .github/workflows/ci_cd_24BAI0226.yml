@@ -17,7 +17,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgrespassword
-          POSTGRES_DB: skillgap_radar_24BAI0226
+          POSTGRES_DB: wanderbudget_24BAI0226
         ports:
           - 5432:5432
         options: >-
@@ -41,27 +41,57 @@ jobs:
 
       - name: Install Backend Dependencies
         working-directory: ./backend
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Generate Prisma Client
         working-directory: ./backend
         env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/skillgap_radar_24BAI0226?schema=public"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/wanderbudget_24BAI0226?schema=public"
         run: npx prisma generate
 
       - name: Validate Prisma Schema & Push
         working-directory: ./backend
         env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/skillgap_radar_24BAI0226?schema=public"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/wanderbudget_24BAI0226?schema=public"
         run: npx prisma db push --skip-generate
+
+      - name: Apply and verify database objects in isolated CI PostgreSQL
+        env:
+          PGPASSWORD: postgrespassword
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d wanderbudget_24BAI0226 -v ON_ERROR_STOP=1 \
+            -f backend/sql/wanderbudget_db_features_24BAI0226.sql
+          psql -h localhost -U postgres -d wanderbudget_24BAI0226 -v ON_ERROR_STOP=1 \
+            -c "SELECT to_regprocedure('sp_calculate_trip_budget(integer,integer,character varying,integer)') IS NOT NULL AS function_present;"
+          psql -h localhost -U postgres -d wanderbudget_24BAI0226 -v ON_ERROR_STOP=1 \
+            -c "SELECT to_regclass('v_trip_budget_summary') IS NOT NULL AS summary_view_present;"
+          psql -h localhost -U postgres -d wanderbudget_24BAI0226 -v ON_ERROR_STOP=1 \
+            -c "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_check_budget_overrun' AND NOT tgisinternal) AS trigger_present;"
 
       - name: Install Frontend Dependencies
         working-directory: ./frontend
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Build Frontend Application
         working-directory: ./frontend
         run: npm run build
+
+      - name: Run offline verification suites
+        working-directory: .
+        env:
+          JWT_SECRET: "ci-offline-test-secret-24BAI0226"
+        run: |
+          set -euo pipefail
+          node --check backend/server_wanderbudget_24BAI0226.js
+          node test_security_offline_24BAI0226.js
+          node test_destination_discovery_offline_24BAI0226.js
+          node test_dynamic_trip_estimator_offline_24BAI0226.js
+          node test_external_budget_offline_24BAI0226.js
+          node test_openai_budget_advisor_offline_24BAI0226.js
+          node test_budget_accuracy_offline_24BAI0226.js
+          node test_dynamic_budget_presentation_offline_24BAI0226.js
+          git diff --check
 
       - name: Log Pipeline Verification
         run: |

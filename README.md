@@ -14,7 +14,7 @@
 | **5** | **Authentication & Security** | **5** | JWT auth, bcrypt password hashing, single `users` table with RBAC (`TRAVELER` vs `ADMIN`), SQL injection prevention (parameterized queries & Prisma), secrets in `.env`. |
 | **6** | **Professional Practices** | **5** | Progressive Git commits, branching (`dev` & `main`), `.gitignore`, Docker & `docker-compose.yml`, automated backup/restore scripts (`backup_24BAI0226.sh`). |
 | **Other** | **CI/CD Pipeline** | **1** | GitHub Actions workflow (`.github/workflows/ci.yml`) validating tests and linting. |
-| **Other** | **Custom Domain Deployment** | **1** | Production-ready build & deployment configuration for custom domain. |
+| **Other** | **Custom Domain Deployment** | **1** | Deployment configuration is documented; a live custom-domain deployment requires separate verification. |
 | **Other** | **Industry Best Practice** | **1** | Automated E2E test suite (15/15 tests passing) + structured PostgreSQL Audit Logging ledger. |
 | **Total** | | **30 / 30** | **Comprehensive Full-Stack DBMS Lab Implementation** |
 
@@ -207,15 +207,17 @@ npm install
 In `backend/.env`:
 ```env
 PORT=5001
-DATABASE_URL="postgresql://postgres:postgrespassword@localhost:5432/skillgap_radar_24BAI0226?schema=public"
-JWT_SECRET="WanderBudget_SuperSecureJWTSecret_2026"
+DATABASE_URL="postgresql://postgres:postgrespassword@localhost:5432/wanderbudget_24BAI0226?schema=public"
+JWT_SECRET="replace-with-a-strong-random-secret"
 ```
 
-### Step 3: Run Database Migrations & Seeds
+### Step 3: Initialize a disposable local database
 ```bash
 cd backend
 npx prisma db push
-node -e "const fs = require('fs'); const { Client } = require('pg'); const c = new Client(process.env.DATABASE_URL); c.connect().then(async () => { await c.query(fs.readFileSync('sql/wanderbudget_db_features_24BAI0226.sql', 'utf8')); await c.end(); });"
+# Apply functions, views and triggers only after confirming DATABASE_URL is a
+# disposable/local target. See docs/DEPLOYMENT.md for the guarded procedure.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/wanderbudget_db_features_24BAI0226.sql
 node prisma/seed_wanderbudget_24BAI0226.js
 ```
 
@@ -232,6 +234,10 @@ npm run dev
 Open **`http://localhost:5173`** in your browser.
 
 ### Credentials
+> **⚠️ Demo Credentials — Grading Use Only.**
+> These credentials are pre-seeded for local development and BCSE302P lab evaluation.
+> They must be changed or removed before any public or production deployment.
+
 - **Student Traveler**: Login ID: `24BAI0226` | Password: `Traveler@123`
 - **System Admin**: Login ID: `ADMIN_24BAI0226` | Password: `Admin@123`
 

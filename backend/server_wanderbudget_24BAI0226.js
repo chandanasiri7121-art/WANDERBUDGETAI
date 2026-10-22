@@ -2,7 +2,10 @@
 // WanderBudget AI — Express.js Backend Server
 // ============================================================================
 
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+// Always load the backend-local configuration, even when Node is launched from the repository root.
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -10,14 +13,46 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const nodemailer = require('nodemailer');
+const { discoverDestinations } = require('./destination_discovery_24BAI0226');
+const { OPENAI_MODEL, createAdvisorStore, getBudgetAdvice } = require('./openai_budget_advisor_24BAI0226');
+const { calculateDynamicEstimate, calculateExternalDynamicPreview, routeExternalDestination, routeSelectedAttractions } = require('./dynamic_trip_estimator_24BAI0226');
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
-const JWT_SECRET = process.env.JWT_SECRET || 'WanderBudget_SuperSecureJWTSecret_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || typeof JWT_SECRET !== 'string' || JWT_SECRET.trim() === '') {
+  console.error('FATAL: JWT_SECRET environment variable is missing or empty. Server cannot start securely.');
+  process.exit(1);
+}
 
 // In-memory OTP store: { email: { otp, expiresAt, attempts } }
 const otpStore = new Map();
+const budgetAdvisorStore = createAdvisorStore();
+
+function configuredCorsOrigins(rawOrigins) {
+  const origins = new Set();
+  for (const value of String(rawOrigins || '').split(',')) {
+    const origin = value.trim();
+    if (!origin) continue;
+    try {
+      const parsed = new URL(origin);
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin) {
+        throw new Error('origin must be an http(s) origin without a path');
+      }
+      origins.add(parsed.origin);
+    } catch {
+      throw new Error(`Invalid FRONTEND_ORIGINS entry: ${origin}`);
+    }
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:5173');
+    origins.add('http://127.0.0.1:5173');
+  }
+  return origins;
+}
+
+const corsOrigins = configuredCorsOrigins(process.env.FRONTEND_ORIGINS);
 
 // Nodemailer SMTP transporter (Gmail)
 const smtpTransporter = nodemailer.createTransport({
@@ -38,9 +73,28 @@ BigInt.prototype.toJSON = function() {
   return Number(this);
 };
 
-// Middleware
-app.use(cors());
+// Middleware. Same-origin requests have no Origin header; browser cross-origin
+// requests must be explicitly listed in FRONTEND_ORIGINS.
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || corsOrigins.has(origin)) return callback(null, true);
+    return callback(new Error('CORS origin is not allowed'));
+  },
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+
+// Public readiness endpoint for Render. It deliberately returns no database
+// configuration or provider error details.
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({ status: 'ok' });
+  } catch (_) {
+    return res.status(503).json({ status: 'unavailable' });
+  }
+});
 
 // Global Headers & Audit Metadata Injection
 app.use((req, res, next) => {
@@ -91,6 +145,33 @@ function requireAdmin(req, res, next) {
   }
 }
 
+// Strict numeric and integer validators for request parameters and payloads
+function isStrictPositiveInteger(val) {
+  if (typeof val === 'number') {
+    return Number.isInteger(val) && val > 0;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!/^[1-9]\d*$/.test(trimmed)) return false;
+    const num = Number(trimmed);
+    return Number.isSafeInteger(num) && num > 0;
+  }
+  return false;
+}
+
+function isStrictPositiveNumber(val) {
+  if (typeof val === 'number') {
+    return Number.isFinite(val) && val > 0;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return false;
+    const num = Number(trimmed);
+    return Number.isFinite(num) && num > 0;
+  }
+  return false;
+}
+
 // ============================================================================
 // 1. AUTHENTICATION & RBAC ENDPOINTS (Section 5 Rubric Compliance)
 // ============================================================================
@@ -111,6 +192,8 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const password_hash = await bcrypt.hash(password, 10);
+    // Strict RBAC: All public registrations are assigned role 'TRAVELER' (presented as User in UI).
+    // Client-supplied 'role' or elevation flags in req.body are strictly ignored.
     const user = await prisma.user.create({
       data: {
         reg_no,
@@ -191,52 +274,89 @@ app.post('/api/auth/login', async (req, res) => {
 // Google OAuth Sign-In & Instant Account Linking (Section 5 Rubric Compliance)
 app.post('/api/auth/google', async (req, res) => {
   try {
-    const { credential, email, name, picture, google_id } = req.body;
-    let googleUser = { email, name, picture, sub: google_id };
+    const { credential } = req.body;
 
-    // If an id_token or credential was sent from Google OAuth client
-    if (credential) {
-      try {
-        const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
-        if (verifyRes.ok) {
-          const payload = await verifyRes.json();
-          googleUser = {
-            email: payload.email,
-            name: payload.name || payload.given_name || 'Google Traveler',
-            picture: payload.picture,
-            sub: payload.sub
-          };
-        } else {
-          // If token verification with external Google fails (e.g. mock token or local simulation), decode JWT
-          const decoded = jwt.decode(credential);
-          if (decoded && decoded.email) {
-            googleUser = {
-              email: decoded.email,
-              name: decoded.name || 'Google Traveler',
-              picture: decoded.picture,
-              sub: decoded.sub || 'GGL_' + Date.now()
-            };
-          }
-        }
-      } catch (tokenErr) {
-        console.warn('Google token verification fallback:', tokenErr.message);
+    // 1. Require cryptographic credential token (reject missing, empty, or non-string inputs)
+    if (!credential || typeof credential !== 'string' || credential.trim() === '') {
+      return res.status(400).json({ error: 'Google credential token is required' });
+    }
+
+    const expectedClientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+    if (!expectedClientId) {
+      console.error('Server configuration error: GOOGLE_CLIENT_ID is missing from environment');
+      return res.status(500).json({ error: 'Google authentication service is temporarily misconfigured' });
+    }
+
+    // 2. Cryptographic signature and claim verification via Google Identity Service endpoint
+    let payload;
+    try {
+      const verifyRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential.trim())}`,
+        { method: 'GET', signal: AbortSignal.timeout(8000) }
+      );
+
+      if (!verifyRes.ok) {
+        return res.status(401).json({ error: 'Invalid, expired, or forged Google OAuth token' });
       }
+
+      payload = await verifyRes.json();
+    } catch (networkErr) {
+      console.error('Google tokeninfo provider network failure:', networkErr.message);
+      return res.status(502).json({ error: 'Unable to contact Google OAuth verification provider. Please try again later.' });
     }
 
-    if (!googleUser.email) {
-      return res.status(400).json({ error: 'Valid Google email is required for OAuth sign-in' });
+    // Reject tokeninfo payloads that are null, arrays, or not objects
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return res.status(401).json({ error: 'Invalid or malformed response from Google token verification' });
     }
 
-    const cleanEmail = googleUser.email.toLowerCase().trim();
-    const cleanName = googleUser.name || cleanEmail.split('@')[0];
+    // 3. Strict Audience (aud) Validation
+    if (String(payload.aud || '').trim() !== expectedClientId) {
+      return res.status(401).json({ error: 'Token audience mismatch: Token was not issued for this application.' });
+    }
 
-    // 1. Look up existing user in the single `users` table by email
+    // 4. Authorized Party (azp) Validation (Google ID-Token Spec)
+    if (payload.azp && String(payload.azp).trim() !== expectedClientId) {
+      return res.status(401).json({ error: 'Token authorized party (azp) mismatch.' });
+    }
+
+    // 5. Issuer (iss) Validation
+    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+      return res.status(401).json({ error: 'Invalid token issuer' });
+    }
+
+    // 6. Expiration (exp) Validation (must be a finite, positive numeric timestamp in the future)
+    const rawExp = payload.exp;
+    const expSeconds = (typeof rawExp === 'number' || (typeof rawExp === 'string' && rawExp.trim() !== '')) ? Number(rawExp) : NaN;
+    if (!Number.isFinite(expSeconds) || expSeconds <= 0 || expSeconds * 1000 <= Date.now()) {
+      return res.status(401).json({ error: 'Google OAuth token has expired or has invalid timestamp' });
+    }
+
+    // 7. Subject (sub) Identifier Validation
+    if (!payload.sub || typeof payload.sub !== 'string' || payload.sub.trim() === '') {
+      return res.status(401).json({ error: 'Token subject identifier missing' });
+    }
+
+    // 8. Verified Email & String Type Check
+    if (payload.email_verified !== 'true' && payload.email_verified !== true) {
+      return res.status(401).json({ error: 'Google email address is not verified' });
+    }
+
+    if (!payload.email || typeof payload.email !== 'string' || !payload.email.includes('@')) {
+      return res.status(401).json({ error: 'Google OAuth token does not contain a valid email address' });
+    }
+
+    const cleanEmail = payload.email.toLowerCase().trim();
+    const cleanName = (typeof payload.name === 'string' && payload.name.trim())
+      ? payload.name.trim()
+      : cleanEmail.split('@')[0];
+
+    // 9. User Lookup, Account Linking, Registration, Audit Logging & JWT Response
     let user = await prisma.user.findUnique({
       where: { email: cleanEmail }
     });
 
     if (user) {
-      // Existing user: Link Google OAuth provider and preserve/update name
       user = await prisma.user.update({
         where: { user_id: user.user_id },
         data: {
@@ -253,11 +373,8 @@ app.post('/api/auth/google', async (req, res) => {
         req
       );
     } else {
-      // New user: Register via Google OAuth in the single Users table
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const generatedRegNo = `GGL_${cleanEmail.split('@')[0].toUpperCase().slice(0, 8)}_${randomSuffix}`;
-
-      // Create random salt hash for OAuth managed accounts (no plain password used)
       const dummyPasswordHash = await bcrypt.hash(`GOOGLE_OAUTH_${cleanEmail}_${Date.now()}`, 10);
 
       user = await prisma.user.create({
@@ -282,7 +399,6 @@ app.post('/api/auth/google', async (req, res) => {
       );
     }
 
-    // 2. Issue JWT token
     const token = jwt.sign(
       {
         user_id: user.user_id,
@@ -307,12 +423,12 @@ app.post('/api/auth/google', async (req, res) => {
         role: user.role,
         home_currency: user.home_currency,
         oauth_provider: 'GOOGLE',
-        avatar_url: googleUser.picture || null
+        avatar_url: payload.picture || null
       }
     });
   } catch (err) {
-    console.error('Google OAuth error:', err);
-    res.status(500).json({ error: 'Google OAuth authentication failed: ' + err.message });
+    console.error('Google OAuth unexpected error:', err.message);
+    res.status(500).json({ error: 'Google OAuth authentication failed' });
   }
 });
 
@@ -1294,8 +1410,64 @@ const WORLD_COUNTRY_LOOKUP = {
   'fiji': { country: 'Fiji', currency: 'FJD', symbol: 'FJ$', rate: 37.0 }
 };
 
+// Shared shape for the verified cost-summary endpoint and read-only AI previews.
+// This is deliberately in-memory: preview requests must never persist destinations or prices.
+function buildCostSummary({ destination_id = null, city_name, country_name, currency_code, currency_symbol, cost_index, is_preview = false }) {
+  const rate = Number(cost_index.exchange_rate_to_inr || 1);
+  const dailyTotals = {
+    budget: Math.round((Number(cost_index.accommodation_budget_night) + Number(cost_index.meal_budget_day) + Number(cost_index.transit_pass_day)) * rate),
+    standard: Math.round((Number(cost_index.accommodation_standard_night) + Number(cost_index.meal_standard_day) + Number(cost_index.transit_pass_day)) * rate),
+    luxury: Math.round((Number(cost_index.accommodation_luxury_night) + Number(cost_index.meal_luxury_day) + Number(cost_index.transit_pass_day)) * rate)
+  };
+  const durations = [
+    ['daily', '1 Day', 1], ['weekend', 'Weekend (3 Days)', 3], ['week', '1 Week (7 Days)', 7],
+    ['fortnight', '2 Weeks (14 Days)', 14], ['month', '1 Month Living (30 Days)', 30]
+  ];
+  const estimated_budgets = Object.fromEntries(durations.map(([key, label, days]) => [key, {
+    label, days,
+    budget_inr: Math.round(dailyTotals.budget * days * 1.10),
+    standard_inr: Math.round(dailyTotals.standard * days * 1.10),
+    luxury_inr: Math.round(dailyTotals.luxury * days * 1.10),
+    budget_local: Math.round((dailyTotals.budget * days * 1.10) / rate),
+    standard_local: Math.round((dailyTotals.standard * days * 1.10) / rate),
+    luxury_local: Math.round((dailyTotals.luxury * days * 1.10) / rate)
+  }]));
+  const score = Math.min(100, Math.max(15, Math.round((dailyTotals.standard / 22000) * 100)));
+  const cost_tier = score >= 80 ? 'VERY_EXPENSIVE' : score >= 55 ? 'EXPENSIVE' : score >= 35 ? 'MODERATE' : 'BUDGET_FRIENDLY';
+  const tier_label = cost_tier === 'VERY_EXPENSIVE' ? 'Very High Cost (Premium Living)' : cost_tier === 'EXPENSIVE' ? 'High Cost (Developed Metropolis)' : cost_tier === 'MODERATE' ? 'Moderate Living Cost (Balanced)' : 'Highly Affordable (Budget Friendly)';
+  return {
+    destination_id, city_name, country_name, currency_code, currency_symbol, exchange_rate_to_inr: rate,
+    cost_index_score: score, cost_tier, tier_label, daily_totals_inr: dailyTotals, estimated_budgets,
+    monthly_living: {
+      solo_monthly_inr: Math.round(dailyTotals.standard * 30 * 0.85),
+      couple_monthly_inr: Math.round(dailyTotals.standard * 30 * 1.45),
+      family4_monthly_inr: Math.round(dailyTotals.standard * 30 * 2.50),
+      currency: currency_code, currency_symbol, rate_to_inr: rate
+    },
+    source: cost_index.source, confidence_score: cost_index.confidence_score, last_synced_at: cost_index.last_synced_at,
+    is_preview, unverified: is_preview
+  };
+}
+
+// External discovery is intentionally separate from the analyzer and all budget/trip paths.
+// It returns transient geographic names only; it never creates or modifies database records.
+app.post('/api/destinations/discover', authenticateToken, async (req, res) => {
+  const rawQuery = req.body?.query;
+  if (typeof rawQuery !== 'string' || rawQuery.trim().length < 2 || rawQuery.trim().length > 160) {
+    return res.status(400).json({ error: 'Please provide a destination search between 2 and 160 characters.' });
+  }
+  try {
+    const discovery = await discoverDestinations({ query: rawQuery });
+    return res.json(discovery);
+  } catch (err) {
+    // Keep discovery non-authoritative and fail closed without leaking provider details.
+    console.warn('External destination discovery unavailable:', err.message);
+    return res.json({ results: [], provider_status: 'unavailable', transformer_used: false });
+  }
+});
+
 // Endpoint: AI Cost of Living Search & Analyzer
-app.post('/api/ai/analyze-destination', async (req, res) => {
+app.post('/api/ai/analyze-destination', authenticateToken, async (req, res) => {
   try {
     const rawQuery = req.body.destination_query || req.body.city || req.body.query || '';
     const destination_query = typeof rawQuery === 'string' ? rawQuery.trim() : String(rawQuery).trim();
@@ -1323,6 +1495,7 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       'tiruchi': 'tiruchirappalli',
       'rameswaram': 'rameshwaram',
       'bengaluru': 'bangalore',
+      'madras': 'chennai',
       'cochin': 'kochi',
       'mysuru': 'mysore',
       'puducherry': 'pondicherry',
@@ -1474,33 +1647,19 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
       }
     }
 
-    // Upsert Destination
-    const savedDest = await prisma.destination.upsert({
-      where: {
-        city_name_country_name: {
-          city_name: formattedCity,
-          country_name: data.country
-        }
-      },
-      update: {
-        currency_code: data.currency,
-        currency_symbol: data.symbol,
-        description: `Live AI-indexed travel destination: ${formattedCity}, ${data.country}. Synthesized using real-time cost-of-living indicators.`
-      },
-      create: {
-        city_name: formattedCity,
-        country_name: data.country,
-        currency_code: data.currency,
-        currency_symbol: data.symbol,
-        description: `Live AI-indexed travel destination: ${formattedCity}, ${data.country}. Synthesized using real-time cost-of-living indicators.`,
-        image_url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80'
-      }
-    });
-
-    // Upsert Cost of Living Index
-    const savedIndex = await prisma.costOfLivingIndex.upsert({
-      where: { destination_id: savedDest.destination_id },
-      update: {
+    // Uncataloged destination: Return in-memory read-only preview without mutating the database
+    const previewDestination = {
+      destination_id: null,
+      city_name: formattedCity,
+      country_name: data.country,
+      currency_code: data.currency,
+      currency_symbol: data.symbol,
+      description: data.description || `Estimated AI travel profile for ${formattedCity}, ${data.country}. Note: This destination is not cataloged in our verified database. All figures are AI/heuristic estimates for planning reference.`,
+      image_url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80',
+      is_preview: true,
+      verified: false,
+      cost_index: {
+        destination_id: null,
         accommodation_budget_night: data.acc_b,
         accommodation_standard_night: data.acc_s,
         accommodation_luxury_night: data.acc_l,
@@ -1510,70 +1669,39 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
         transit_pass_day: data.transit,
         taxi_per_km: data.taxi,
         exchange_rate_to_inr: data.rate,
-        source: data.source || 'LIVE_WEB_SEARCH_AI',
-        confidence_score: 0.95,
+        source: data.source || 'AI_ESTIMATE',
+        confidence_score: 0.70,
         last_synced_at: new Date()
       },
-      create: {
-        destination_id: savedDest.destination_id,
-        accommodation_budget_night: data.acc_b,
-        accommodation_standard_night: data.acc_s,
-        accommodation_luxury_night: data.acc_l,
-        meal_budget_day: data.meal_b,
-        meal_standard_day: data.meal_s,
-        meal_luxury_day: data.meal_l,
-        transit_pass_day: data.transit,
-        taxi_per_km: data.taxi,
-        exchange_rate_to_inr: data.rate,
-        source: data.source || 'LIVE_WEB_SEARCH_AI',
-        confidence_score: 0.95
-      }
-    });
-
-    // Upsert Attractions
-    for (const attr of data.attractions) {
-      const ticketInr = Math.round(attr.price * data.rate);
-      const existingAttr = await prisma.attraction.findFirst({
-        where: { destination_id: savedDest.destination_id, name: attr.name }
-      });
-      if (!existingAttr) {
-        await prisma.attraction.create({
-          data: {
-            destination_id: savedDest.destination_id,
-            name: attr.name,
-            category: attr.category,
-            ticket_price_local: attr.price,
-            ticket_price_inr: ticketInr,
-            avg_duration_hours: attr.hours,
-            recommended_style: 'ALL'
-          }
-        });
-      }
-    }
-
-    // Fetch full result with attractions
-    const result = await prisma.destination.findUnique({
-      where: { destination_id: savedDest.destination_id },
-      include: {
-        cost_index: true,
-        attractions: { orderBy: { ticket_price_inr: 'asc' } }
-      }
-    });
-
-    await createAuditLog(
-      req.user?.user_id || null,
-      'AI_DESTINATION_ANALYZED',
-      'DESTINATION',
-      savedDest.destination_id,
-      `AI internet search analysis complete for ${formattedCity}, ${data.country}`,
-      req
-    );
+      attractions: (data.attractions || []).map((attr, idx) => ({
+        attraction_id: `est_${idx + 1}`,
+        destination_id: null,
+        name: attr.name,
+        category: attr.category,
+        ticket_price_local: attr.price,
+        ticket_price_inr: Math.round(attr.price * data.rate),
+        avg_duration_hours: attr.hours,
+        recommended_style: 'ALL',
+        is_estimate: true
+      }))
+    };
 
     res.json({
       cached: false,
-      source: 'LIVE_WEB_SEARCH_AI',
+      verified: false,
+      is_preview: true,
+      source: data.source || 'AI_ESTIMATE',
       last_synced_at: new Date(),
-      destination: result
+      destination: previewDestination,
+      cost_summary: buildCostSummary({
+        city_name: previewDestination.city_name,
+        country_name: previewDestination.country_name,
+        currency_code: previewDestination.currency_code,
+        currency_symbol: previewDestination.currency_symbol,
+        cost_index: previewDestination.cost_index,
+        is_preview: true
+      }),
+      note: 'Uncataloged destination. Displaying unverified AI travel estimates for reference.'
     });
   } catch (err) {
     console.error('AI Destination Analysis error:', err);
@@ -1582,7 +1710,7 @@ app.post('/api/ai/analyze-destination', async (req, res) => {
 });
 
 // Endpoint: AI Traveler Copilot Chatbot (Gemini Generative + PostgreSQL Context + Smart Heuristic Fallback)
-app.post('/api/ai/traveler-chatbot', async (req, res) => {
+app.post('/api/ai/traveler-chatbot', authenticateToken, async (req, res) => {
   try {
     const { message, history = [], destination_id } = req.body;
     if (!message || typeof message !== 'string' || message.trim() === '') {
@@ -1592,27 +1720,33 @@ app.post('/api/ai/traveler-chatbot', async (req, res) => {
     const cleanMsg = message.trim();
     const lowerMsg = cleanMsg.toLowerCase();
 
-    // 1. Identify destination context (either provided or parsed from user prompt)
+    // 1. Identify destination context: User's explicit message takes PRIORITY over selected destination
     let destContext = null;
-    if (destination_id) {
+    const allDests = await prisma.destination.findMany({
+      select: { destination_id: true, city_name: true, country_name: true }
+    });
+
+    // Match message against destinations in database (check longer names first)
+    const sortedDests = [...allDests].sort((a, b) => b.city_name.length - a.city_name.length);
+    const matchedInMsg = sortedDests.find(d => {
+      const reg = new RegExp(`\\b${d.city_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      return reg.test(cleanMsg);
+    });
+
+    if (matchedInMsg) {
       destContext = await prisma.destination.findUnique({
-        where: { destination_id: parseInt(destination_id) },
+        where: { destination_id: matchedInMsg.destination_id },
         include: {
           cost_index: true,
           attractions: { orderBy: { ticket_price_inr: 'asc' } }
         }
       });
-    }
-
-    if (!destContext) {
-      // Find matching destination by city name mentioned in message
-      const allDests = await prisma.destination.findMany({
-        select: { destination_id: true, city_name: true, country_name: true }
-      });
-      const found = allDests.find(d => lowerMsg.includes(d.city_name.toLowerCase()));
-      if (found) {
+    } else {
+      // If user did not name a destination, use destination_id ONLY if message is context-dependent
+      const isContextDependent = /\b(here|this city|this place|the city|current destination|local|hotel|hotels|stay|food|meal|transit|attraction|attractions|things to do|itinerary for this|day \d)\b/i.test(cleanMsg);
+      if (isContextDependent && destination_id) {
         destContext = await prisma.destination.findUnique({
-          where: { destination_id: found.destination_id },
+          where: { destination_id: parseInt(destination_id) },
           include: {
             cost_index: true,
             attractions: { orderBy: { ticket_price_inr: 'asc' } }
@@ -1621,37 +1755,33 @@ app.post('/api/ai/traveler-chatbot', async (req, res) => {
       }
     }
 
-    // Default to Tirupati if no destination mentioned and none active, for demo richness
-    if (!destContext && (lowerMsg.includes('tirupati') || lowerMsg.includes('tirumala'))) {
-      destContext = await prisma.destination.findFirst({
-        where: { city_name: { contains: 'Tirupati', mode: 'insensitive' } },
-        include: { cost_index: true, attractions: true }
-      });
-    }
-
     // 2. Check if Google Gemini is configured
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey && apiKey.trim().length > 10 && apiKey !== 'YOUR_GEMINI_API_KEY') {
       try {
         const destSummary = destContext ? `
-Destination Grounding Data from PostgreSQL:
+Verified Destination Grounding Data from 3NF PostgreSQL Database:
 - City: ${destContext.city_name}, Country: ${destContext.country_name}
 - Local Currency: ${destContext.currency_code} (${destContext.currency_symbol}), Exchange Rate: 1 ${destContext.currency_code} = ₹${destContext.cost_index?.exchange_rate_to_inr || 1} INR
-- Daily Accommodation (INR): Budget ₹${Math.round(destContext.cost_index.accommodation_budget_night * destContext.cost_index.exchange_rate_to_inr)}, Standard ₹${Math.round(destContext.cost_index.accommodation_standard_night * destContext.cost_index.exchange_rate_to_inr)}, Luxury ₹${Math.round(destContext.cost_index.accommodation_luxury_night * destContext.cost_index.exchange_rate_to_inr)}
-- Daily Meals (INR): Budget ₹${Math.round(destContext.cost_index.meal_budget_day * destContext.cost_index.exchange_rate_to_inr)}, Standard ₹${Math.round(destContext.cost_index.meal_standard_day * destContext.cost_index.exchange_rate_to_inr)}, Luxury ₹${Math.round(destContext.cost_index.meal_luxury_day * destContext.cost_index.exchange_rate_to_inr)}
-- Transit Pass: ₹${Math.round(destContext.cost_index.transit_pass_day * destContext.cost_index.exchange_rate_to_inr)}/day, Taxi: ₹${Math.round(destContext.cost_index.taxi_per_km * destContext.cost_index.exchange_rate_to_inr)}/km
+- Daily Accommodation (INR): Budget ₹${Math.round(destContext.cost_index?.accommodation_budget_night * destContext.cost_index?.exchange_rate_to_inr)}, Standard ₹${Math.round(destContext.cost_index?.accommodation_standard_night * destContext.cost_index?.exchange_rate_to_inr)}, Luxury ₹${Math.round(destContext.cost_index?.accommodation_luxury_night * destContext.cost_index?.exchange_rate_to_inr)}
+- Daily Meals (INR): Budget ₹${Math.round(destContext.cost_index?.meal_budget_day * destContext.cost_index?.exchange_rate_to_inr)}, Standard ₹${Math.round(destContext.cost_index?.meal_standard_day * destContext.cost_index?.exchange_rate_to_inr)}, Luxury ₹${Math.round(destContext.cost_index?.meal_luxury_day * destContext.cost_index?.exchange_rate_to_inr)}
+- Transit Pass: ₹${Math.round(destContext.cost_index?.transit_pass_day * destContext.cost_index?.exchange_rate_to_inr)}/day, Taxi: ₹${Math.round(destContext.cost_index?.taxi_per_km * destContext.cost_index?.exchange_rate_to_inr)}/km
 - Verified Tourist Landmarks in DB:
-${destContext.attractions.slice(0, 10).map(a => `  * ${a.name} [${a.category}] - Ticket: ₹${a.ticket_price_inr} (${a.ticket_price_local} ${destContext.currency_code}) - Duration: ${a.avg_duration_hours} hrs`).join('\n')}
-` : 'No specific destination active yet. Provide recommendations from popular global destinations (e.g. Tirupati, Paris, Tokyo, Zurich, Bali, London, Rome).';
+${(destContext.attractions || []).slice(0, 10).map(a => `  * ${a.name} [${a.category}] - Ticket: ₹${a.ticket_price_inr} (${a.ticket_price_local} ${destContext.currency_code}) - Duration: ${a.avg_duration_hours} hrs`).join('\n')}
+` : 'No specific active database destination attached. Assist with any worldwide destination requested.';
 
         const systemPrompt = `You are "WanderBot", the friendly, expert AI Traveler Copilot for WanderBudget AI.
-You help travelers with realistic cost of living estimates, personalized itineraries, landmark recommendations, and smart travel budgeting.
+You help travelers with worldwide travel planning, budget estimates, personalized itineraries, destination comparisons, and smart travel budgeting across any city or country globally.
+
 ${destSummary}
 
-Instructions:
-- Use clear, well-structured Markdown with emojis, bold headers, bullet points, and specific numbers in INR and local currency.
-- Keep responses engaging, informative, and concise (under 250 words unless detailed itinerary is requested).
-- If relevant, suggest next steps like loading into the Trip Builder or adding attractions.`;
+Instructions & Guidelines:
+- Support questions about destinations worldwide (cities, countries, attractions, transit, accommodation, itineraries, weather, and budgeting).
+- The user's explicit question and destination intent take highest priority. If the user asks about a different city or general travel, answer their query directly and do not restrict your answer to the reference destination.
+- Clearly distinguish between verified database data and AI-generated estimates. Do not claim that AI-generated prices, real-time availability, or live weather are verified real-time records unless they are from the verified database grounding.
+- If data for an uncataloged city is estimated, transparently note that it is an estimate.
+- Use clean, structured Markdown with emojis, bold headers, bullet points, and specific numbers in INR and local currencies.
+- Keep responses engaging, informative, and concise (under 250 words unless a comprehensive itinerary is requested).`;
 
         const geminiHistory = (history || []).slice(-6).map(h => ({
           role: h.role === 'assistant' ? 'model' : 'user',
@@ -1704,23 +1834,23 @@ Instructions:
               city_name: destContext.city_name,
               country_name: destContext.country_name
             } : null,
-              suggested_prompts: destContext ? [
-                `What is a 5-day budget for ${destContext.city_name}?`,
-                `Top free attractions in ${destContext.city_name}?`,
-                `How does ${destContext.city_name} compare to Paris?`
-              ] : [
-                "What is the budget for 4 days in Tirupati?",
-                "Compare Tokyo vs Paris daily costs",
-                "Give me budget tips for Bali"
-              ]
-            });
-          }
-        } catch (gemErr) {
-          console.warn('[Chatbot] Gemini call failed, falling back to smart heuristic:', gemErr.message);
+            suggested_prompts: destContext ? [
+              `What is a 5-day budget for ${destContext.city_name}?`,
+              `Top free attractions in ${destContext.city_name}?`,
+              `How does ${destContext.city_name} compare to Paris?`
+            ] : [
+              "What is the budget for 5 days in Paris?",
+              "Compare Tokyo vs Zurich daily costs",
+              "Give me budget tips for Bali"
+            ]
+          });
         }
+      } catch (gemErr) {
+        console.warn('[Chatbot] Gemini call failed, falling back to smart heuristic:', gemErr.message);
       }
+    }
 
-    // 3. Smart Domain-Aware Heuristic Travel Brain (Guaranteed 100% Reliable & Accurate)
+    // 3. Smart Domain-Aware Heuristic Travel Brain (100% Reliable & Worldwide Capable)
     let reply = '';
     let suggestedPrompts = [];
 
@@ -1741,7 +1871,7 @@ Instructions:
         })
       ]);
 
-      if (c1 && c2) {
+      if (c1 && c2 && c1.cost_index && c2.cost_index) {
         const rate1 = Number(c1.cost_index.exchange_rate_to_inr) || 1.0;
         const rate2 = Number(c2.cost_index.exchange_rate_to_inr) || 1.0;
         const daily1 = Math.round((Number(c1.cost_index.accommodation_standard_night) + Number(c1.cost_index.meal_standard_day) + Number(c1.cost_index.transit_pass_day)) * rate1);
@@ -1750,6 +1880,7 @@ Instructions:
         const diffPercent = Math.abs(Math.round(((daily1 - daily2) / Math.max(daily1, daily2)) * 100));
 
         reply = `### ⚖️ Cost Comparison: **${c1.city_name}** vs **${c2.city_name}**
+*(Verified PostgreSQL Database Figures)*
 
 | Metric | **${c1.city_name}** (${c1.country_name}) | **${c2.city_name}** (${c2.country_name}) |
 | :--- | :--- | :--- |
@@ -1764,15 +1895,22 @@ Instructions:
           `What are the best attractions in ${c2.city_name}?`,
           `Calculate 5-day budget for ${cheaper}`
         ];
+      } else {
+        reply = `### ⚖️ Destination Cost Comparison
+To provide a precise cost comparison, you can compare any of our cataloged destinations (such as Paris, Tokyo, Zurich, Rome, London, New York, Bali, or Tirupati).
+* Mention the two cities explicitly (e.g., *"Compare Paris vs Tokyo"* or *"London vs Rome"*).
+* Our database will contrast standard accommodation, meals, transit, and daily burn rates in INR.`;
+        suggestedPrompts = [
+          "Compare Tokyo vs Paris daily costs",
+          "Compare London vs Rome daily costs",
+          "Compare Zurich vs Vienna daily costs"
+        ];
       }
     }
 
-    // Case B: Budget for N days (e.g., "5 days in Tirupati", "3 day budget", "cost for a week")
+    // Case B: Budget for N days (e.g., "5 days in Paris", "3 day budget", "cost for a week")
     if (!reply && (lowerMsg.includes('day') || lowerMsg.includes('week') || lowerMsg.includes('budget') || lowerMsg.includes('cost'))) {
-      const targetDest = destContext || await prisma.destination.findFirst({
-        where: { city_name: 'Tirupati' },
-        include: { cost_index: true, attractions: true }
-      });
+      const targetDest = destContext;
 
       if (targetDest && targetDest.cost_index) {
         // Parse days if specified
@@ -1796,39 +1934,52 @@ Instructions:
         const totalLuxuryTier = (lAcc + lMeal + lTransit) * days;
 
         reply = `### 💰 Estimated **${days}-Day Budget** for **${targetDest.city_name}, ${targetDest.country_name}**
-*(Local currency: ${targetDest.currency_code} • Live FX: 1 = ₹${rate} INR)*
+*(Local currency: ${targetDest.currency_code} • Live FX: 1 = ₹${rate} INR • Database Grounded)*
 
 * **🎒 Backpacker / Budget Tier:** **₹${totalBudgetTier.toLocaleString('en-IN')} INR** *(~₹${(totalBudgetTier/days).toFixed(0)}/day)*
-  * Stay: ₹${bAcc}/night in clean hostels / dharamsala / budget rooms
-  * Food: ₹${bMeal}/day for local street food & authentic vegetarian thalis
-  * Transit: ₹${bTransit}/day public bus / shared autos
+  * Stay: ₹${bAcc}/night in clean hostels / budget stays
+  * Food: ₹${bMeal}/day for local street food & casual eateries
+  * Transit: ₹${bTransit}/day public bus / metro
 
 * **🌟 Comfort / Standard Tier (Recommended):** **₹${totalStandardTier.toLocaleString('en-IN')} INR** *(~₹${(totalStandardTier/days).toFixed(0)}/day)*
   * Stay: ₹${sAcc}/night in 3-star AC hotel
-  * Food: ₹${sMeal}/day for family sit-down restaurants
+  * Food: ₹${sMeal}/day for standard sit-down restaurants
   * Transit: ₹${sTransit}/day app cabs & city transit
 
 * **👑 Luxury / VIP Tier:** **₹${totalLuxuryTier.toLocaleString('en-IN')} INR** *(~₹${(totalLuxuryTier/days).toFixed(0)}/day)*
-  * Stay: ₹${lAcc}/night in 5-star resort / heritage suite
+  * Stay: ₹${lAcc}/night in 5-star resort / luxury suite
   * Food: ₹${lMeal}/day fine dining & curated banquets
   * Transit: ₹${lTransit}/day dedicated chauffeur car rental
 
-🎯 **Next Step:** You can load this directly into **Tab 2 (Trip Budget Builder)** to include specific sightseeing attractions!`;
+🎯 **Next Step:** You can load this destination into **Tab 2 (Trip Budget Builder)** to include specific sightseeing attractions!`;
 
         suggestedPrompts = [
           `Show me top attractions in ${targetDest.city_name}`,
           `Which places are free in ${targetDest.city_name}?`,
-          `Compare ${targetDest.city_name} vs Bangalore`
+          `Compare ${targetDest.city_name} vs Paris`
+        ];
+      } else {
+        reply = `### 💰 Worldwide Travel Budgeting Framework
+When planning trips worldwide, expenses generally distribute across five core categories:
+* **🏨 Accommodation (40%):** Hostels & budget rooms (₹1,000–₹3,500/night), 3-star standard hotels (₹3,500–₹9,000/night), Luxury resorts (₹12,000+/night).
+* **🍽️ Food & Dining (25%):** Local markets and street cuisine (₹500–₹1,500/day), Mid-range restaurants (₹1,500–₹4,000/day).
+* **🚇 Local Transit (15%):** City metro passes, commuter buses, or rideshares.
+* **🎟️ Attractions & Experiences (10%):** Museum tickets, heritage monuments, and tours.
+* **🛡️ Contingency Reserve (10%):** Unplanned fees, tips, and travel buffer.
+
+💡 **Tip:** Mention any destination in your prompt (e.g., *"What is the budget for 5 days in Paris?"* or *"Tokyo cost breakdown"*) and I'll compute a destination-specific estimate!`;
+        suggestedPrompts = [
+          "What is the budget for 5 days in Paris?",
+          "What is the 4-day budget for Tokyo?",
+          "What are budget travel tips for Bali?",
+          "Compare London vs Rome daily costs"
         ];
       }
     }
 
     // Case C: Attractions & Things to do query
     if (!reply && (lowerMsg.includes('attraction') || lowerMsg.includes('places') || lowerMsg.includes('visit') || lowerMsg.includes('see') || lowerMsg.includes('things to do') || lowerMsg.includes('free'))) {
-      const targetDest = destContext || await prisma.destination.findFirst({
-        where: { city_name: 'Tirupati' },
-        include: { cost_index: true, attractions: true }
-      });
+      const targetDest = destContext;
 
       if (targetDest && targetDest.attractions && targetDest.attractions.length > 0) {
         const isFreeFilter = lowerMsg.includes('free') || lowerMsg.includes('cheap');
@@ -1852,28 +2003,40 @@ ${attrs.slice(0, 7).map((a, idx) => `**${idx + 1}. ${a.name}**
           `How much is hotel stay in ${targetDest.city_name}?`,
           `What can I do with ₹10,000 in ${targetDest.city_name}?`
         ];
+      } else {
+        reply = `### 🏛️ Worldwide Attractions & Sightseeing Guidance
+To view verified attractions and ticket prices in INR, mention any of our cataloged destinations or browse the Destination Explorer.
+* Examples: *"Show attractions in Paris"*, *"Top places to visit in Tokyo"*, *"Free things to do in Rome"*, or *"Attractions in Tirupati"*.
+* Every verified attraction includes entry fees, duration, and can be dynamically loaded into your Trip Builder.`;
+        suggestedPrompts = [
+          "Show top attractions in Paris",
+          "Must-visit places in Tokyo",
+          "Free attractions in Rome",
+          "Top attractions in Tirupati"
+        ];
       }
     }
 
     // Case D: General Greetings & Fallback
     if (!reply) {
-      reply = `Hello! 👋 I am **WanderBot**, your intelligent Traveler Copilot for **WanderBudget AI**!
+      reply = `Hello! 👋 I am **WanderBot**, your intelligent AI Traveler Copilot for **WanderBudget AI**!
 
-I have direct access to our **3NF PostgreSQL database** containing **98 global destinations, 417 verified attractions, and real-time cost-of-living indicators**.
+I provide travel assistance for **destinations across the globe**, backed by our 3NF PostgreSQL database of verified destinations, attractions, and real-time cost-of-living indicators.
 
 Here are some things you can ask me:
-* 💰 **"What is the budget for 4 days in Tirupati?"**
-* 🥐 **"Compare Tokyo vs Paris daily costs"**
-* 🛕 **"What are the best attractions to visit in Tirupati?"**
-* 🆓 **"Show me free attractions in Rome"**
-* 🎒 **"What can I do in Hyderabad with ₹15,000?"**
+* 🥐 **"What is the budget for 5 days in Paris?"**
+* ⚖️ **"Compare Tokyo vs Zurich daily costs"**
+* 🏛️ **"Show free attractions in Rome"**
+* 🌴 **"Give me budget tips for Bali"**
+* 🗽 **"Average hotel and dining costs in New York"**
+* 🛕 **"What is the budget for 4 days in Tirupati?"**
 
 Where would you like to travel today? 🌍`;
 
       suggestedPrompts = [
-        "What is the budget for 4 days in Tirupati?",
-        "Compare Tokyo vs Paris daily costs",
-        "Show top attractions in Tirupati",
+        "What is the budget for 5 days in Paris?",
+        "Compare Tokyo vs Zurich daily costs",
+        "Show free attractions in Rome",
         "Best budget destinations under ₹30,000"
       ];
     }
@@ -2059,13 +2222,17 @@ app.get('/api/destinations/:id/cost-of-living-summary', async (req, res) => {
   }
 });
 
-// Dynamic Custom Attraction Creation (Not Hardcoded)
-app.post('/api/destinations/:id/attractions', async (req, res) => {
+// Dynamic Custom Attraction Creation (Not Hardcoded) — Admin Authorized
+app.post('/api/destinations/:id/attractions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const destId = parseInt(req.params.id);
+    const rawDestId = req.params.id;
+    if (!isStrictPositiveInteger(rawDestId)) {
+      return res.status(400).json({ error: 'Invalid destination identifier. Expected positive integer.' });
+    }
+    const destId = Number(rawDestId);
     const { name, category, ticket_price_inr, avg_duration_hours, description } = req.body;
 
-    if (!name) {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ error: 'Attraction name is required' });
     }
 
@@ -2078,19 +2245,34 @@ app.post('/api/destinations/:id/attractions', async (req, res) => {
       return res.status(404).json({ error: 'Destination not found' });
     }
 
-    const priceInr = parseFloat(ticket_price_inr || 0);
+    let priceInr = 0;
+    if (ticket_price_inr !== undefined && ticket_price_inr !== null && ticket_price_inr !== '') {
+      if (!isStrictPositiveNumber(ticket_price_inr) && ticket_price_inr !== 0 && ticket_price_inr !== '0') {
+        return res.status(400).json({ error: 'ticket_price_inr must be a non-negative number' });
+      }
+      priceInr = Number(ticket_price_inr);
+    }
+
     const rate = Number(destination.cost_index?.exchange_rate_to_inr || 1.0);
     const priceLocal = rate > 0 ? priceInr / rate : priceInr;
+
+    let duration = 2.0;
+    if (avg_duration_hours !== undefined && avg_duration_hours !== null && avg_duration_hours !== '') {
+      if (!isStrictPositiveNumber(avg_duration_hours)) {
+        return res.status(400).json({ error: 'avg_duration_hours must be a positive number' });
+      }
+      duration = Number(avg_duration_hours);
+    }
 
     const newAttr = await prisma.attraction.create({
       data: {
         destination_id: destId,
         name: name.trim(),
-        category: category || 'Custom Sightseeing',
+        category: (category && typeof category === 'string' && category.trim()) ? category.trim() : 'Custom Sightseeing',
         ticket_price_local: priceLocal,
         ticket_price_inr: priceInr,
-        avg_duration_hours: parseFloat(avg_duration_hours || 2.0),
-        description: description || 'User-added custom tourist spot'
+        avg_duration_hours: duration,
+        description: (description && typeof description === 'string' && description.trim()) ? description.trim() : 'Admin-added custom tourist spot'
       }
     });
 
@@ -2099,27 +2281,42 @@ app.post('/api/destinations/:id/attractions', async (req, res) => {
       attraction: newAttr
     });
   } catch (err) {
-    console.error('Create attraction error:', err);
+    console.error('Create attraction error:', err.message);
     res.status(500).json({ error: 'Failed to create attraction' });
   }
 });
 
-// Delete / Discard Attraction from Destination Catalog
-app.delete('/api/attractions/:id', async (req, res) => {
+// Delete / Discard Attraction from Destination Catalog — Admin Authorized
+app.delete('/api/attractions/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const attrId = parseInt(req.params.id);
+    const rawId = req.params.id;
+    if (!isStrictPositiveInteger(rawId)) {
+      return res.status(400).json({ error: 'Invalid attraction identifier. Expected positive integer.' });
+    }
+    const attrId = Number(rawId);
+    const existing = await prisma.attraction.findUnique({
+      where: { attraction_id: attrId }
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Attraction not found' });
+    }
+
     await prisma.attraction.delete({ where: { attraction_id: attrId } });
     res.json({ message: 'Attraction removed from destination catalog' });
   } catch (err) {
-    console.error('Delete attraction error:', err);
+    console.error('Delete attraction error:', err.message);
     res.status(500).json({ error: 'Failed to delete attraction' });
   }
 });
 
-// Live Rate Sync Endpoint: Refresh Real-Time Foreign Exchange Rates & Synchronize Attractions
-app.post('/api/destinations/:id/sync-rates', async (req, res) => {
+// Live Rate Sync Endpoint: Refresh Real-Time Foreign Exchange Rates & Synchronize Attractions — Admin Authorized
+app.post('/api/destinations/:id/sync-rates', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const destId = parseInt(req.params.id);
+    const rawDestId = req.params.id;
+    if (!isStrictPositiveInteger(rawDestId)) {
+      return res.status(400).json({ error: 'Invalid destination identifier. Expected positive integer.' });
+    }
+    const destId = Number(rawDestId);
     const destination = await prisma.destination.findUnique({
       where: { destination_id: destId },
       include: { cost_index: true, attractions: true }
@@ -2167,7 +2364,7 @@ app.post('/api/destinations/:id/sync-rates', async (req, res) => {
       destination: updated
     });
   } catch (err) {
-    console.error('Sync rates error:', err);
+    console.error('Sync rates error:', err.message);
     res.status(500).json({ error: 'Failed to sync live exchange rates' });
   }
 });
@@ -2188,6 +2385,162 @@ app.get('/api/categories', async (req, res) => {
 // 4. DYNAMIC BUDGET BUILDER & WHAT-IF ENGINE (Section 3 & 4 Rubric)
 // ============================================================================
 
+// Versioned, read-only real-world estimate. The established PostgreSQL function
+// and saved-trip API remain unchanged until a user explicitly chooses another path.
+app.post('/api/trips/dynamic-estimate', authenticateToken, async (req, res) => {
+  const body = req.body || {};
+  const destinationId = Number(body.destination_id);
+  const days = Number(body.duration_days);
+  const travelers = Number(body.group_size);
+  const style = typeof body.travel_style === 'string' ? body.travel_style.trim().toUpperCase() : '';
+  const external = body.external_destination;
+  const externalCoordinates = external?.coordinates;
+  const externalIsValid = external?.is_external === true && typeof external?.city_name === 'string' && external.city_name.trim().length >= 2 && typeof external?.country_name === 'string' && external.country_name.trim().length >= 2 && Number.isFinite(Number(externalCoordinates?.longitude)) && Number.isFinite(Number(externalCoordinates?.latitude)) && Math.abs(Number(externalCoordinates.latitude)) <= 90 && Math.abs(Number(externalCoordinates.longitude)) <= 180;
+  if ((!Number.isSafeInteger(destinationId) || destinationId <= 0) && !externalIsValid) {
+    return res.status(400).json({ error: 'Provide a verified destination or externally geocoded destination coordinates.' });
+  }
+  if (!Number.isSafeInteger(days) || days < 1 || days > 60 || !Number.isSafeInteger(travelers) || travelers < 1 || travelers > 20 || !['BUDGET', 'STANDARD', 'LUXURY'].includes(style)) {
+    return res.status(400).json({ error: 'Provide 1-60 days, 1-20 travelers, and a valid travel style.' });
+  }
+  const attractionIds = Array.isArray(body.attraction_ids)
+    ? [...new Set(body.attraction_ids.map(Number).filter(Number.isSafeInteger))].slice(0, 30)
+    : [];
+  try {
+    if (externalIsValid && (!Number.isSafeInteger(destinationId) || destinationId <= 0)) {
+      const route = await routeExternalDestination({
+        startLocation: typeof body.starting_point === 'string' ? body.starting_point.trim().slice(0, 160) : '',
+        destinationCoordinates: externalCoordinates,
+        osrmUrl: process.env.OSRM_BASE_URL,
+        userAgent: process.env.NOMINATIM_USER_AGENT
+      });
+      const estimate = calculateExternalDynamicPreview({
+        trip: { overnight_stay: body.overnight_stay === true }, route
+      });
+      return res.json({ destination: { city_name: external.city_name.trim(), region_name: typeof external.region_name === 'string' ? external.region_name.trim() || null : null, country_name: external.country_name.trim(), coordinates: externalCoordinates, is_external: true, verified: false }, ...estimate });
+    }
+    const destination = await prisma.destination.findUnique({ where: { destination_id: destinationId }, include: { cost_index: true } });
+    if (!destination?.cost_index) return res.status(404).json({ error: 'Verified destination cost data was not found.' });
+    const foundAttractions = attractionIds.length
+      ? await prisma.attraction.findMany({ where: { destination_id: destinationId, attraction_id: { in: attractionIds } }, select: { attraction_id: true, name: true, ticket_price_inr: true } })
+      : [];
+    // Preserve the user's selected attraction order; no AI or database ordering is applied.
+    const attractionsById = new Map(foundAttractions.map(item => [Number(item.attraction_id), item]));
+    const attractions = attractionIds.map(attractionId => attractionsById.get(attractionId) || ({ attraction_id: attractionId, name: `Unknown attraction #${attractionId}`, ticket_price_inr: null }));
+    const route = await routeSelectedAttractions({
+      startLocation: typeof body.starting_point === 'string' ? body.starting_point.trim().slice(0, 160) : '',
+      selectedAttractions: attractions,
+      destinationLabel: `${destination.city_name}, ${destination.country_name}`,
+      regionName: destination.city_name,
+      countryName: destination.country_name,
+      nominatimUrl: process.env.NOMINATIM_BASE_URL,
+      osrmUrl: process.env.OSRM_BASE_URL,
+      userAgent: process.env.NOMINATIM_USER_AGENT
+    });
+    const estimate = calculateDynamicEstimate({
+      costIndex: destination.cost_index,
+      source: destination.cost_index.source,
+      lastSyncedAt: destination.cost_index.last_synced_at,
+      trip: {
+        duration_days: days,
+        travelers,
+        travel_style: style,
+        overnight_stay: body.overnight_stay === true,
+        overnight_nights: body.overnight_nights,
+        room_occupancy: body.room_occupancy,
+        meals_per_person_per_day: body.meals_per_person_per_day,
+        transport_preference: body.transport_preference,
+        cab_distance_share: body.cab_distance_share
+      },
+      attractions,
+      route
+    });
+    return res.json({ destination: { destination_id: destination.destination_id, city_name: destination.city_name, country_name: destination.country_name }, ...estimate });
+  } catch (error) {
+    // Deliberately diagnostic-only: do not expose provider, database, or credential details to clients.
+    console.error('Dynamic estimate failed:', error?.name || 'Error', error?.code || '');
+    return res.status(503).json({ error: 'Dynamic estimate is temporarily unavailable. The deterministic budget estimate remains available.' });
+  }
+});
+
+// Optional, read-only OpenAI planning advice. This endpoint never calculates or
+// persists a budget; PostgreSQL remains the sole source of final totals.
+app.post('/api/trips/budget-advice', authenticateToken, async (req, res) => {
+  const { destination_id, duration_days, travel_style, group_size, attraction_ids } = req.body || {};
+  const destinationId = Number(destination_id);
+  const days = Number(duration_days);
+  const travelers = Number(group_size);
+  const style = typeof travel_style === 'string' ? travel_style.trim().toUpperCase() : '';
+  if (!Number.isSafeInteger(destinationId) || destinationId <= 0 || !Number.isSafeInteger(days) || days < 1 || days > 21 || !Number.isSafeInteger(travelers) || travelers < 1 || travelers > 20 || !['BUDGET', 'STANDARD', 'LUXURY'].includes(style)) {
+    return res.status(400).json({ error: 'Provide a verified destination, 1-21 days, 1-20 travelers, and a valid travel style.' });
+  }
+
+  const attractionIds = Array.isArray(attraction_ids)
+    ? [...new Set(attraction_ids.map(Number).filter(Number.isSafeInteger))].slice(0, 30)
+    : [];
+  const cacheKey = JSON.stringify({ user: req.user.user_id, destinationId, days, travelers, style, attractionIds });
+  const cached = budgetAdvisorStore.getCached(cacheKey);
+  if (cached) return res.json({ ...cached, cached: true });
+  if (!budgetAdvisorStore.allow(req.user.user_id)) {
+    return res.status(429).json({ error: 'AI budget recommendations are limited to five requests every 15 minutes. Please try again later.' });
+  }
+
+  try {
+    const destination = await prisma.destination.findUnique({
+      where: { destination_id: destinationId },
+      include: { cost_index: true }
+    });
+    if (!destination || !destination.cost_index) {
+      return res.status(404).json({ error: 'Verified destination cost data was not found.' });
+    }
+    const selectedAttractions = attractionIds.length > 0
+      ? await prisma.attraction.findMany({
+        where: { destination_id: destinationId, attraction_id: { in: attractionIds } },
+        select: { name: true, category: true, ticket_price_inr: true }
+      })
+      : [];
+    const index = destination.cost_index;
+    const context = {
+      destination: { city: destination.city_name, country: destination.country_name, currency: destination.currency_code },
+      trip: { duration_days: days, travelers, travel_style: style, accommodation_nights: Math.max(days - 1, 0) },
+      verified_cost_benchmarks_local_currency: {
+        accommodation_budget_night: Number(index.accommodation_budget_night),
+        accommodation_standard_night: Number(index.accommodation_standard_night),
+        accommodation_luxury_night: Number(index.accommodation_luxury_night),
+        meal_budget_day: Number(index.meal_budget_day),
+        meal_standard_day: Number(index.meal_standard_day),
+        meal_luxury_day: Number(index.meal_luxury_day),
+        transit_pass_day: Number(index.transit_pass_day),
+        taxi_per_km: Number(index.taxi_per_km)
+      },
+      verified_selected_attractions: selectedAttractions.map(item => ({
+        name: item.name, category: item.category, ticket_price_inr: Number(item.ticket_price_inr)
+      })),
+      rules: [
+        'The deterministic PostgreSQL budget engine owns all totals.',
+        'Recommendations are informational and cannot change calculated amounts.',
+        'Do not claim any unsupported information is verified.'
+      ]
+    };
+    const result = await getBudgetAdvice({ apiKey: process.env.OPENAI_API_KEY, context });
+    if (result.status !== 'ok') {
+      const status = result.status === 'invalid' ? 502 : result.provider_status === 429 ? 429 : 503;
+      return res.status(status).json({ error: result.reason, retry_after_seconds: result.retry_after_seconds || undefined, fallback: 'The deterministic budget estimate remains available.' });
+    }
+    const payload = {
+      model: result.model,
+      advice: result.advice,
+      calculated_amounts_changed: false,
+      cached: false
+    };
+    budgetAdvisorStore.putCached(cacheKey, payload);
+    return res.json(payload);
+  } catch (error) {
+    // Deliberately diagnostic-only: clients receive a safe fallback while server logs retain the error class/code.
+    console.error('Budget advice failed:', error?.name || 'Error', error?.code || '');
+    return res.status(503).json({ error: 'AI budget recommendations are temporarily unavailable.', fallback: 'The deterministic budget estimate remains available.' });
+  }
+});
+
 // Calculate Dynamic Budget using PostgreSQL Stored Procedure + Selected Places
 app.post('/api/trips/build-budget', async (req, res) => {
   try {
@@ -2197,9 +2550,135 @@ app.post('/api/trips/build-budget', async (req, res) => {
     const travelers = Math.max(1, parseInt(group_size) || 1);
     const style = (travel_style || 'STANDARD').toUpperCase();
     const destId = parseInt(destination_id);
+    const external = req.body.external_destination;
+    const isExternal = (!destId || destId <= 0) && external?.is_external === true && typeof external?.city_name === 'string';
 
-    if (!destId) {
-      return res.status(400).json({ error: 'destination_id is required' });
+    if (!destId && !isExternal) {
+      return res.status(400).json({ error: 'destination_id or external_destination is required' });
+    }
+
+    if (isExternal) {
+      const idx = external.cost_index;
+      const isDomestic = (external.country_name || '').toLowerCase().includes('india') ||
+                         (external.city_name || '').toLowerCase().includes('india') ||
+                         ['badrinath', 'kakinada', 'vizianagaram', 'tirupati'].some(c => (external.city_name || '').toLowerCase().includes(c));
+
+      const defaultIdx = isDomestic ? {
+        accommodation_budget_night: 750, accommodation_standard_night: 2200, accommodation_luxury_night: 6800,
+        meal_budget_day: 380, meal_standard_day: 900, meal_luxury_day: 2200,
+        transit_pass_day: 300, taxi_per_km: 18, exchange_rate_to_inr: 1.0
+      } : {
+        accommodation_budget_night: 40, accommodation_standard_night: 130, accommodation_luxury_night: 350,
+        meal_budget_day: 20, meal_standard_day: 52, meal_luxury_day: 140,
+        transit_pass_day: 9.0, taxi_per_km: 2.2, exchange_rate_to_inr: 84.0
+      };
+
+      const validNum = (val, fallback) => (Number.isFinite(Number(val)) && Number(val) > 0 ? Number(val) : fallback);
+      const rate = validNum(idx?.exchange_rate_to_inr, defaultIdx.exchange_rate_to_inr);
+      const accRate = validNum(idx?.[style === 'BUDGET' ? 'accommodation_budget_night' : style === 'LUXURY' ? 'accommodation_luxury_night' : 'accommodation_standard_night'], defaultIdx[style === 'BUDGET' ? 'accommodation_budget_night' : style === 'LUXURY' ? 'accommodation_luxury_night' : 'accommodation_standard_night']);
+      const mealRate = validNum(idx?.[style === 'BUDGET' ? 'meal_budget_day' : style === 'LUXURY' ? 'meal_luxury_day' : 'meal_standard_day'], defaultIdx[style === 'BUDGET' ? 'meal_budget_day' : style === 'LUXURY' ? 'meal_luxury_day' : 'meal_standard_day']);
+      const transitRate = validNum(idx?.transit_pass_day, defaultIdx.transit_pass_day);
+
+      const rooms = Math.ceil(travelers / 2);
+      const accTotal = Math.round(days * accRate * rooms * rate);
+      const foodTotal = Math.round(days * travelers * mealRate * rate);
+      const transitTotal = Math.round(days * travelers * transitRate * rate);
+
+      let selectedAttractions = [];
+      let attractionsCostInr = 0;
+      if (Array.isArray(external.attractions) && external.attractions.length > 0) {
+        selectedAttractions = external.attractions.filter(a =>
+          !Array.isArray(attraction_ids) || attraction_ids.length === 0 || attraction_ids.includes(a.attraction_id)
+        );
+        attractionsCostInr = selectedAttractions.reduce((sum, a) => sum + (validNum(a.ticket_price_inr, 0) * travelers), 0);
+      } else {
+        attractionsCostInr = Math.round(days * travelers * 150 * (isDomestic ? 1 : rate / 84));
+      }
+
+      const subtotal = accTotal + foodTotal + transitTotal + attractionsCostInr;
+      const bufferTotal = Math.round(subtotal * 0.10);
+      const totalBudgetInr = subtotal + bufferTotal;
+      const perPersonInr = Math.round(totalBudgetInr / travelers);
+
+      const breakdown = [
+        {
+          category_code: 'ACCOMMODATION',
+          category_name: 'Accommodation',
+          icon: 'Hotel',
+          allocated_inr: accTotal,
+          daily_rate_inr: Math.round(accRate * rate),
+          calculation_basis: `${days} nights, ${rooms} room(s) @ ₹${Math.round(accRate * rate)}/night (${style.toLowerCase()})`
+        },
+        {
+          category_code: 'FOOD',
+          category_name: 'Food & Dining',
+          icon: 'Utensils',
+          allocated_inr: foodTotal,
+          daily_rate_inr: Math.round(mealRate * rate),
+          calculation_basis: `${days} days × ${travelers} traveler(s) @ ₹${Math.round(mealRate * rate)}/day`
+        },
+        {
+          category_code: 'TRANSIT',
+          category_name: 'Local Transport',
+          icon: 'Train',
+          allocated_inr: transitTotal,
+          daily_rate_inr: Math.round(transitRate * rate),
+          calculation_basis: `${days} days × ${travelers} traveler(s) @ ₹${Math.round(transitRate * rate)}/day transit pass`
+        },
+        {
+          category_code: 'SIGHTSEEING',
+          category_name: 'Sightseeing & Admissions',
+          icon: 'Camera',
+          allocated_inr: attractionsCostInr,
+          daily_rate_inr: Math.round(attractionsCostInr / days),
+          calculation_basis: selectedAttractions.length > 0 ? `${selectedAttractions.length} attraction ticket(s) × ${travelers} traveler(s)` : `Sightseeing activities allowance for ${travelers} traveler(s)`
+        },
+        {
+          category_code: 'BUFFER',
+          category_name: 'Contingency & Fluctuation',
+          icon: 'Shield',
+          allocated_inr: bufferTotal,
+          daily_rate_inr: Math.round(bufferTotal / days),
+          calculation_basis: '10% Emergency contingency & currency fluctuation buffer'
+        }
+      ];
+
+      const budgetAcc = validNum(idx?.accommodation_budget_night, defaultIdx.accommodation_budget_night);
+      const budgetMeal = validNum(idx?.meal_budget_day, defaultIdx.meal_budget_day);
+      const budgetSubtotal = Math.round(days * budgetAcc * rooms * rate) + Math.round(days * travelers * budgetMeal * rate) + transitTotal + attractionsCostInr;
+      const budgetTotal = Math.round(budgetSubtotal * 1.10);
+
+      const luxuryAcc = validNum(idx?.accommodation_luxury_night, defaultIdx.accommodation_luxury_night);
+      const luxuryMeal = validNum(idx?.meal_luxury_day, defaultIdx.meal_luxury_day);
+      const luxurySubtotal = Math.round(days * luxuryAcc * rooms * rate) + Math.round(days * travelers * luxuryMeal * rate) + transitTotal + attractionsCostInr;
+      const luxuryTotal = Math.round(luxurySubtotal * 1.10);
+
+      let minusOneDaySavings = 0;
+      if (days > 1) {
+        const minusDaySubtotal = Math.round((days - 1) * accRate * rooms * rate) + Math.round((days - 1) * travelers * mealRate * rate) + Math.round((days - 1) * travelers * transitRate * rate) + attractionsCostInr;
+        minusOneDaySavings = Math.round(totalBudgetInr - (minusDaySubtotal * 1.10));
+      }
+
+      return res.json({
+        duration_days: days,
+        group_size: travelers,
+        travel_style: style,
+        total_budget_inr: totalBudgetInr,
+        per_person_inr: perPersonInr,
+        category_breakdown: breakdown,
+        selected_attractions: selectedAttractions,
+        what_if_insights: {
+          budget_style_cost: budgetTotal,
+          budget_style_savings: Math.max(0, totalBudgetInr - budgetTotal),
+          luxury_style_cost: luxuryTotal,
+          luxury_upgrade_cost: Math.max(0, luxuryTotal - totalBudgetInr),
+          minus_one_day_savings: Math.max(0, minusOneDaySavings),
+          split_per_traveler: perPersonInr
+        },
+        is_external: true,
+        verified: false,
+        calculation_model: 'AI Destination Benchmark (Google Gemini / Live AI) • External Preview'
+      });
     }
 
     // Call PostgreSQL Stored Procedure: sp_calculate_trip_budget
@@ -2208,14 +2687,26 @@ app.post('/api/trips/build-budget', async (req, res) => {
     `;
 
     // Fetch selected attractions cost
+    const attractionIds = Array.isArray(attraction_ids)
+      ? [...new Set(attraction_ids.map(Number).filter(Number.isSafeInteger))]
+      : [];
     let attractionsCostInr = 0;
     let selectedAttractions = [];
-    if (attraction_ids && Array.isArray(attraction_ids) && attraction_ids.length > 0) {
+    if (attractionIds.length > 0) {
       selectedAttractions = await prisma.attraction.findMany({
-        where: { attraction_id: { in: attraction_ids.map(Number) } }
+        where: {
+          destination_id: destId,
+          attraction_id: { in: attractionIds }
+        }
       });
       attractionsCostInr = selectedAttractions.reduce((sum, a) => sum + (Number(a.ticket_price_inr) * travelers), 0);
     }
+
+    const replaceSightseeingWithSelectedTickets = (rows) => rows.reduce((sum, row) => (
+      sum + (row.category_code === 'SIGHTSEEING'
+        ? attractionsCostInr
+        : Number(row.allocated_inr))
+    ), 0);
 
     // Map categories from stored procedure
     const categories = await prisma.budgetCategory.findMany();
@@ -2224,8 +2715,8 @@ app.post('/api/trips/build-budget', async (req, res) => {
     const breakdown = spResult.map(row => {
       let finalAllocated = Number(row.allocated_inr);
       // Replace sightseeing estimation with exact tickets if attractions were specified
-      if (row.category_code === 'SIGHTSEEING' && Array.isArray(attraction_ids)) {
-        finalAllocated = Math.round(attractionsCostInr);
+      if (row.category_code === 'SIGHTSEEING') {
+        finalAllocated = Math.round(attractionsCostInr * 100) / 100;
       }
 
       return {
@@ -2245,23 +2736,23 @@ app.post('/api/trips/build-budget', async (req, res) => {
     // Compute What-If Comparisons:
     // 1. Budget Style Alternative
     const budgetStyleSP = await prisma.$queryRaw`
-      SELECT SUM(allocated_inr)::NUMERIC as total FROM sp_calculate_trip_budget(${destId}::INT, ${days}::INT, 'BUDGET'::VARCHAR, ${travelers}::INT)
+      SELECT * FROM sp_calculate_trip_budget(${destId}::INT, ${days}::INT, 'BUDGET'::VARCHAR, ${travelers}::INT)
     `;
-    const budgetTotal = Math.round(Number(budgetStyleSP[0]?.total || totalBudgetInr * 0.65));
+    const budgetTotal = Math.round(replaceSightseeingWithSelectedTickets(budgetStyleSP) * 100) / 100;
 
     // 2. Luxury Style Alternative
     const luxuryStyleSP = await prisma.$queryRaw`
-      SELECT SUM(allocated_inr)::NUMERIC as total FROM sp_calculate_trip_budget(${destId}::INT, ${days}::INT, 'LUXURY'::VARCHAR, ${travelers}::INT)
+      SELECT * FROM sp_calculate_trip_budget(${destId}::INT, ${days}::INT, 'LUXURY'::VARCHAR, ${travelers}::INT)
     `;
-    const luxuryTotal = Math.round(Number(luxuryStyleSP[0]?.total || totalBudgetInr * 2.2));
+    const luxuryTotal = Math.round(replaceSightseeingWithSelectedTickets(luxuryStyleSP) * 100) / 100;
 
     // 3. Minus 1 Day Alternative
     let minusOneDaySavings = 0;
     if (days > 1) {
       const minusDaySP = await prisma.$queryRaw`
-        SELECT SUM(allocated_inr)::NUMERIC as total FROM sp_calculate_trip_budget(${destId}::INT, ${(days - 1)}::INT, ${style}::VARCHAR, ${travelers}::INT)
+        SELECT * FROM sp_calculate_trip_budget(${destId}::INT, ${(days - 1)}::INT, ${style}::VARCHAR, ${travelers}::INT)
       `;
-      minusOneDaySavings = Math.round(totalBudgetInr - Number(minusDaySP[0]?.total || 0));
+      minusOneDaySavings = Math.round((totalBudgetInr - replaceSightseeingWithSelectedTickets(minusDaySP)) * 100) / 100;
     }
 
     res.json({
@@ -2552,7 +3043,12 @@ app.get('/api/trips', authenticateToken, async (req, res) => {
 // Get Single Trip Full Details
 app.get('/api/trips/:id', authenticateToken, async (req, res) => {
   try {
-    const tripId = parseInt(req.params.id);
+    const rawId = req.params.id;
+    if (!isStrictPositiveInteger(rawId)) {
+      return res.status(400).json({ error: 'Invalid trip identifier. Expected positive integer.' });
+    }
+    const tripId = Number(rawId);
+
     const trip = await prisma.trip.findUnique({
       where: { trip_id: tripId },
       include: {
@@ -2571,8 +3067,14 @@ app.get('/api/trips/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Trip not found' });
     }
 
+    // Enforce Object-Level Authorization: Admins have read access; Travelers can only read their own trips
+    if (req.user.role !== 'ADMIN' && trip.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Forbidden: You do not have permission to view this trip' });
+    }
+
     res.json(trip);
   } catch (err) {
+    console.error('Fetch trip details error:', err.message);
     res.status(500).json({ error: 'Failed to fetch trip details' });
   }
 });
@@ -2586,39 +3088,117 @@ app.post('/api/expenses', authenticateToken, async (req, res) => {
   try {
     const { trip_id, category_id, expense_name, amount_inr, currency_code, amount_original, payment_method, notes } = req.body;
 
-    if (!trip_id || !category_id || !expense_name || !amount_inr) {
-      return res.status(400).json({ error: 'Missing required expense fields' });
+    // 1. Primitive & Positive Number Validations (rejects booleans and trailing garbage like "12abc", "50abc")
+    if (!isStrictPositiveInteger(trip_id)) {
+      return res.status(400).json({ error: 'Valid positive integer trip_id is required' });
+    }
+    const parsedTripId = Number(trip_id);
+
+    if (!isStrictPositiveInteger(category_id)) {
+      return res.status(400).json({ error: 'Valid positive integer category_id is required' });
+    }
+    const parsedCategoryId = Number(category_id);
+
+    if (!expense_name || typeof expense_name !== 'string' || expense_name.trim() === '') {
+      return res.status(400).json({ error: 'Non-empty expense_name is required' });
     }
 
-    // Insert expense into PostgreSQL.
-    // The PostgreSQL trigger trg_check_budget_overrun will execute automatically:
-    // 1. Recalculates category spending in trip_budget_breakdowns
-    // 2. Updates total_spent_inr in trips
-    // 3. Checks if 80% or 100% threshold crossed and creates BudgetAlert!
+    if (!isStrictPositiveNumber(amount_inr)) {
+      return res.status(400).json({ error: 'Expense amount must be a positive number' });
+    }
+    const parsedAmount = Number(amount_inr);
+
+    let parsedOriginal = parsedAmount;
+    if (amount_original !== undefined && amount_original !== null) {
+      if (!isStrictPositiveNumber(amount_original)) {
+        return res.status(400).json({ error: 'amount_original must be a positive number' });
+      }
+      parsedOriginal = Number(amount_original);
+    }
+
+    const allowedMethods = ['CARD', 'CASH', 'UPI', 'FOREX'];
+    let method = 'CARD';
+    if (payment_method !== undefined && payment_method !== null) {
+      if (typeof payment_method !== 'string' || payment_method.trim() === '') {
+        return res.status(400).json({ error: `Invalid payment_method. Allowed: ${allowedMethods.join(', ')}` });
+      }
+      method = payment_method.trim().toUpperCase();
+      if (!allowedMethods.includes(method)) {
+        return res.status(400).json({ error: `Invalid payment_method. Allowed: ${allowedMethods.join(', ')}` });
+      }
+    }
+
+    let currency = 'INR';
+    if (currency_code !== undefined && currency_code !== null) {
+      if (typeof currency_code !== 'string') {
+        return res.status(400).json({ error: 'currency_code must be a string of 1 to 10 characters' });
+      }
+      const trimmedCurrency = currency_code.trim().toUpperCase();
+      if (trimmedCurrency.length < 1 || trimmedCurrency.length > 10) {
+        return res.status(400).json({ error: 'currency_code must be between 1 and 10 characters' });
+      }
+      currency = trimmedCurrency;
+    }
+
+    // 2. Trip Existence & Ownership Verification
+    const trip = await prisma.trip.findUnique({
+      where: { trip_id: parsedTripId }
+    });
+
+    if (!trip) {
+      return res.status(404).json({ error: 'Referenced trip not found' });
+    }
+
+    // Enforce Ownership Policy: Only the trip owner may log expenses against their itinerary
+    if (trip.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Forbidden: You can only log expenses for your own trips' });
+    }
+
+    // 3. Category Validation & Allocation Envelope Verification
+    const category = await prisma.budgetCategory.findUnique({
+      where: { category_id: parsedCategoryId }
+    });
+
+    if (!category) {
+      return res.status(400).json({ error: 'Invalid category_id. Category does not exist in master catalog.' });
+    }
+
+    const breakdown = await prisma.tripBudgetBreakdown.findFirst({
+      where: {
+        trip_id: parsedTripId,
+        category_id: parsedCategoryId
+      }
+    });
+
+    if (!breakdown) {
+      return res.status(400).json({ error: 'Category is not allocated within this trip budget breakdown' });
+    }
+
+    // 4. Safe Insertion into PostgreSQL (The database trigger fires automatically)
     const expense = await prisma.tripExpense.create({
       data: {
-        trip_id: Number(trip_id),
-        category_id: Number(category_id),
+        trip_id: parsedTripId,
+        category_id: parsedCategoryId,
         user_id: req.user.user_id,
-        expense_name,
-        amount_inr: Number(amount_inr),
-        currency_code: currency_code || 'INR',
-        amount_original: Number(amount_original || amount_inr),
-        payment_method: payment_method || 'CARD',
-        notes: notes || null
+        expense_name: expense_name.trim(),
+        amount_inr: parsedAmount,
+        currency_code: currency,
+        amount_original: parsedOriginal,
+        payment_method: method,
+        notes: notes ? String(notes).trim() : null
       }
     });
 
     // Check newly generated alerts for this trip
     const recentAlerts = await prisma.budgetAlert.findMany({
-      where: { trip_id: Number(trip_id) },
+      where: { trip_id: parsedTripId },
       orderBy: { created_at: 'desc' },
       take: 3
     });
 
     // Fetch updated trip status
     const updatedTrip = await prisma.trip.findUnique({
-      where: { trip_id: Number(trip_id) },
+      where: { trip_id: parsedTripId },
       select: { total_budget_inr: true, total_spent_inr: true }
     });
 
@@ -2627,7 +3207,7 @@ app.post('/api/expenses', authenticateToken, async (req, res) => {
       'EXPENSE_LOGGED',
       'EXPENSE',
       expense.expense_id,
-      `Logged expense '${expense_name}' of ${amount_inr} INR for trip ${trip_id}`,
+      `Logged expense '${expense_name.trim()}' of ${parsedAmount} INR for trip ${parsedTripId}`,
       req
     );
 
@@ -2643,10 +3223,24 @@ app.post('/api/expenses', authenticateToken, async (req, res) => {
   }
 });
 
-// Get Budget Alerts for a Trip
+// Get Budget Alerts for a Trip — Strict ID & Ownership Checked
 app.get('/api/trips/:id/alerts', authenticateToken, async (req, res) => {
   try {
-    const tripId = parseInt(req.params.id);
+    const rawId = req.params.id;
+    if (!isStrictPositiveInteger(rawId)) {
+      return res.status(400).json({ error: 'Invalid trip identifier. Expected positive integer.' });
+    }
+    const tripId = Number(rawId);
+    const trip = await prisma.trip.findUnique({
+      where: { trip_id: tripId }
+    });
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    if (req.user.role !== 'ADMIN' && trip.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Forbidden: You do not have permission to view alerts for this trip' });
+    }
+
     const alerts = await prisma.budgetAlert.findMany({
       where: { trip_id: tripId },
       include: { category: true },
@@ -2654,6 +3248,7 @@ app.get('/api/trips/:id/alerts', authenticateToken, async (req, res) => {
     });
     res.json(alerts);
   } catch (err) {
+    console.error('Fetch trip alerts error:', err.message);
     res.status(500).json({ error: 'Failed to fetch budget alerts' });
   }
 });
@@ -2662,10 +3257,24 @@ app.get('/api/trips/:id/alerts', authenticateToken, async (req, res) => {
 // 7. ANALYTICAL SQL VIEWS & AGGREGATE QUERIES (Section 3 Rubric)
 // ============================================================================
 
-// Query SQL View: v_trip_budget_summary
+// Query SQL View: v_trip_budget_summary — Strict ID & Ownership Checked
 app.get('/api/analytics/trip-summary/:id', authenticateToken, async (req, res) => {
   try {
-    const tripId = parseInt(req.params.id);
+    const rawId = req.params.id;
+    if (!isStrictPositiveInteger(rawId)) {
+      return res.status(400).json({ error: 'Invalid trip identifier. Expected positive integer.' });
+    }
+    const tripId = Number(rawId);
+    const trip = await prisma.trip.findUnique({
+      where: { trip_id: tripId }
+    });
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    if (req.user.role !== 'ADMIN' && trip.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Forbidden: You do not have permission to view analytics for this trip' });
+    }
+
     const summary = await prisma.$queryRaw`
       SELECT * FROM v_trip_budget_summary WHERE trip_id = ${tripId}
     `;
@@ -2683,7 +3292,7 @@ app.get('/api/analytics/trip-summary/:id', authenticateToken, async (req, res) =
       category_variance: categoryVariance
     });
   } catch (err) {
-    console.error('Trip summary view error:', err);
+    console.error('Trip summary view error:', err.message);
     res.status(500).json({ error: 'Failed to fetch analytical trip view' });
   }
 });
@@ -2727,8 +3336,8 @@ app.get('/api/admin/audit-logs', authenticateToken, requireAdmin, async (req, re
   }
 });
 
-// System Health & Database Stats
-app.get('/api/admin/system-health', async (req, res) => {
+// System Health & Database Stats — Admin Authorized
+app.get('/api/admin/system-health', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const [userCount, tripCount, destCount, expenseCount, alertCount] = await Promise.all([
       prisma.user.count(),
@@ -2758,7 +3367,8 @@ app.get('/api/admin/system-health', async (req, res) => {
       uptime_seconds: process.uptime()
     });
   } catch (err) {
-    res.status(500).json({ status: 'ERROR', error: err.message });
+    console.error('System health error:', err.message);
+    res.status(500).json({ status: 'ERROR', error: 'Failed to retrieve system health metrics' });
   }
 });
 
@@ -2768,15 +3378,20 @@ app.get('/api/system/api-status', (req, res) => {
   const isConfigured = Boolean(key && key.trim().length > 10 && key !== 'YOUR_GEMINI_API_KEY');
   res.json({
     gemini_configured: isConfigured,
-    gemini_masked_key: isConfigured ? `${key.trim().slice(0, 6)}...${key.trim().slice(-4)}` : null,
     model: 'Google Gemini 1.5 Flash / 2.0 Flash',
     fx_rates_source: 'live (open.er-api.com/v6/latest/INR)',
     curated_destinations_count: 98,
-    database: 'PostgreSQL 14+ (skillgap_radar_24BAI0226)'
+    database: 'PostgreSQL 14+ (wanderbudget_24BAI0226)'
   });
 });
 
-app.post('/api/system/save-gemini-key', async (req, res) => {
+app.post('/api/system/save-gemini-key', authenticateToken, requireAdmin, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      error: 'Gemini configuration is managed through environment variables in production.'
+    });
+  }
+
   try {
     const { apiKey } = req.body;
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 8) {
@@ -2803,12 +3418,13 @@ app.post('/api/system/save-gemini-key', async (req, res) => {
       masked_key: `${cleanKey.slice(0, 6)}...${cleanKey.slice(-4)}`
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update Gemini API key: ' + err.message });
+    console.error('Save gemini key error:', err.message);
+    res.status(500).json({ error: 'Failed to update Gemini API key due to internal server error' });
   }
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`==================================================================`);
   console.log(` WanderBudget AI — Dynamic Trip Budget Builder & Cost Analyzer `);
   console.log(` Running on Port: http://localhost:${PORT} `);

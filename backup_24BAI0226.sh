@@ -3,8 +3,8 @@
 
 set -e
 
-CONTAINER_NAME="skillgap_pg_24BAI0226"
-DB_NAME="skillgap_radar_24BAI0226"
+CONTAINER_NAME="wanderbudget_pg_24BAI0226"
+DB_NAME="wanderbudget_24BAI0226"
 DB_USER="postgres"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_DIR="./backups"

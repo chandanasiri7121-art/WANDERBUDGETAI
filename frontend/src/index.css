@@ -2,45 +2,171 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   WanderBudget AI — Semantic Theme Tokens (Light & Dark)
+   ============================================================================ */
+
 :root {
+  color-scheme: light;
+
+  /* Surfaces & Backgrounds */
+  --wb-bg: #f8fafc;
+  --wb-surface: #ffffff;
+  --wb-subtle: #f1f5f9;
+  --wb-card: rgba(255, 255, 255, 0.90);
+  --wb-card-solid: #ffffff;
+
+  /* Borders */
+  --wb-border: #e2e8f0;
+  --wb-border-hover: #cbd5e1;
+
+  /* Typography */
+  --wb-text-main: #0f172a;
+  --wb-text-muted: #475569;
+  --wb-text-subtle: #64748b;
+
+  /* Accents (Travel Emerald & Cyan) */
+  --wb-accent: #059669;
+  --wb-accent-hover: #047857;
+  --wb-accent-subtle: rgba(5, 150, 105, 0.12);
+  --wb-accent-text: #065f46;
+
+  /* Background Gradient */
+  --wb-grad-1: rgba(99, 102, 241, 0.04);
+  --wb-grad-2: rgba(13, 148, 136, 0.04);
+
+  /* Scrollbars */
+  --wb-scroll-track: #f1f5f9;
+  --wb-scroll-thumb: #cbd5e1;
+  --wb-scroll-hover: #94a3b8;
+}
+
+.dark {
   color-scheme: dark;
+
+  /* Surfaces & Backgrounds */
+  --wb-bg: #0b0f19;
+  --wb-surface: #111827;
+  --wb-subtle: #1e293b;
+  --wb-card: rgba(17, 24, 39, 0.85);
+  --wb-card-solid: #111827;
+
+  /* Borders */
+  --wb-border: #1f2937;
+  --wb-border-hover: #374151;
+
+  /* Typography */
+  --wb-text-main: #f8fafc;
+  --wb-text-muted: #94a3b8;
+  --wb-text-subtle: #64748b;
+
+  /* Accents (Travel Emerald & Cyan) */
+  --wb-accent: #10b981;
+  --wb-accent-hover: #059669;
+  --wb-accent-subtle: rgba(16, 185, 129, 0.15);
+  --wb-accent-text: #6ee7b7;
+
+  /* Background Gradient */
+  --wb-grad-1: rgba(99, 102, 241, 0.08);
+  --wb-grad-2: rgba(6, 182, 212, 0.08);
+
+  /* Scrollbars */
+  --wb-scroll-track: #111827;
+  --wb-scroll-thumb: #374151;
+  --wb-scroll-hover: #4b5563;
 }
 
 body {
   margin: 0;
-  background-color: #0b0f19;
+  background-color: var(--wb-bg);
   background-image: 
-    radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-    radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
+    radial-gradient(at 10% 10%, var(--wb-grad-1) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, var(--wb-grad-2) 0px, transparent 50%);
   background-attachment: fixed;
-  color: #f3f4f6;
-  font-family: 'Inter', sans-serif;
+  color: var(--wb-text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom Scrollbar */
+/* Custom Dual-Theme Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: var(--wb-scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--wb-scroll-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--wb-scroll-hover);
 }
 
+/* Theme-Aware Glass Panels */
 .glass-panel {
-  background: rgba(17, 24, 39, 0.75);
+  background: var(--wb-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--wb-border);
 }
 
 .glass-panel-hover:hover {
-  border-color: rgba(99, 102, 241, 0.35);
-  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1);
+  border-color: var(--wb-border-hover);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.08);
+}
+
+/* ============================================================================
+   Form Controls, Dropdowns & High-Contrast Select Adaptations
+   ============================================================================ */
+
+/* High-contrast defaults for all dark-themed select and input fields */
+select.bg-slate-950,
+select.bg-slate-900,
+input.bg-slate-950,
+input.bg-slate-900,
+textarea.bg-slate-950,
+textarea.bg-slate-900,
+.bg-slate-900 select,
+.bg-slate-950 select,
+.bg-slate-900 input,
+.bg-slate-950 input {
+  color: #f8fafc !important;
+  background-color: #020617 !important;
+}
+
+/* Ensure all native select options & optgroups are crisp and clearly legible */
+select option,
+select optgroup {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Form Controls in Light Mode default styling (only for elements without dark background classes) */
+html:not(.dark) input:not([type="checkbox"]):not([type="range"]):not(.bg-slate-950):not(.bg-slate-900),
+html:not(.dark) select:not(.bg-slate-950):not(.bg-slate-900),
+html:not(.dark) textarea:not(.bg-slate-950):not(.bg-slate-900) {
+  color: #0f172a;
+}
+
+html:not(.dark) select:not(.bg-slate-950):not(.bg-slate-900) option,
+html:not(.dark) select:not(.bg-slate-950):not(.bg-slate-900) optgroup {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* Table Dividers in Light Mode */
+html:not(.dark) .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0;
+}
+
+/* Range sliders in light mode */
+html:not(.dark) input[type="range"] {
+  background-color: #e2e8f0;
 }

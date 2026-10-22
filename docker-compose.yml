@@ -1,20 +1,22 @@
 version: '3.8'
 
 services:
-  skillgap_postgres_24BAI0226:
+  wanderbudget_postgres_24BAI0226:
     image: postgres:16-alpine
-    container_name: skillgap_pg_24BAI0226
+    container_name: wanderbudget_pg_24BAI0226
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: skillgap_radar_24BAI0226
+      # Local-development default only. Set POSTGRES_PASSWORD in an untracked
+      # root .env for any shared or hosted environment.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+      POSTGRES_DB: wanderbudget_24BAI0226
     ports:
       - "5432:5432"
     volumes:
       - pgdata_24BAI0226:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d skillgap_radar_24BAI0226"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wanderbudget_24BAI0226"]
       interval: 5s
       timeout: 5s
       retries: 5
